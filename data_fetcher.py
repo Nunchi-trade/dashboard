@@ -77,7 +77,7 @@ def fetch_logs(
     topics: List[str],
     from_block: int,
     to_block: int = None,
-    batch_size: int = 2000
+    batch_size: int = 900
 ) -> List[Dict]:
     """Fetch event logs from HyperEVM"""
     if to_block is None:
