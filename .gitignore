@@ -18,6 +18,7 @@ venv/
 data/
 *.csv
 *.json
+!alltime_cache.json
 
 # OS
 .DS_Store

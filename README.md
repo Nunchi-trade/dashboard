@@ -1,24 +1,24 @@
 # Nunchi Analytics Dashboard
 
-Real-time analytics dashboard for [Nunchi](https://nunchi.trade) on HyperEVM. No external APIs required - queries the blockchain directly.
+Real-time analytics dashboard for [Nunchi](https://nunchi.trade) on HyperEVM. Tracks nLP, nHYPE, and Pendle integrations with data from Hyperscan API.
 
 ![Dashboard Preview](https://img.shields.io/badge/Streamlit-Dashboard-red?style=for-the-badge&logo=streamlit)
 ![HyperEVM](https://img.shields.io/badge/HyperEVM-Chain%20999-blue?style=for-the-badge)
 
 ## Features
 
-- **Pendle Deposits & Withdrawals** - Track SY-wNLP mints/burns
-- **Pendle Volume** - Daily swap volume and fees
-- **nLP TVL** - Total value locked over time
-- **nLP Volume** - Token transfer activity
-- **Top Holders** - Current wNLP distribution
-- **User Analytics** - Daily/cumulative unique users
+- **Current TVL** - Live nLP, nHYPE, Pendle SY, and Pendle market TVL
+- **Volume Traded** - All-time HIP-3 volume on Hyperliquid testnet (VXX, US3M)
+- **All-Time Totals** - Cumulative deposits, withdrawals, volume, and transfers
+- **APY & Distributed Yield** - Live APY data and yield calculations from Pendle
+- **Pendle Pools Breakdown** - Stats for both Dec 2025 (expired) and Jun 2026 (active) pools
 
 ## Quick Start
 
 ```bash
-# 1. Navigate to the dashboard folder
-cd nunchi_dashboard
+# 1. Clone the repository
+git clone https://github.com/Nunchi-trade/dashboard.git
+cd dashboard
 
 # 2. Install dependencies
 pip install -r requirements.txt
@@ -37,17 +37,23 @@ Then open **http://localhost:8501** in your browser.
 
 ## No API Keys Required!
 
-This dashboard queries HyperEVM directly via the public RPC endpoint. No Dune, no API keys, completely free.
+This dashboard queries data from:
+- **Hyperscan API** - For all-time on-chain data (indexed, fast)
+- **HyperEVM RPC** - For live TVL via totalSupply()
+- **Pendle API** - For APY and yield data
+- **Hyperliquid Testnet API** - For HIP-3 trading volume
 
 ## Project Structure
 
 ```
-nunchi_dashboard/
+dashboard/
 ├── app.py              # Main Streamlit dashboard
-├── data_fetcher.py     # HyperEVM data queries
+├── data_fetcher.py     # Data fetching logic (Hyperscan, RPC, Pendle, Hyperliquid)
 ├── config.py           # Contract addresses & settings
+├── alltime_cache.json  # Cached all-time data (speeds up loading)
 ├── requirements.txt    # Python dependencies
 ├── run.sh              # Convenience runner script
+├── .streamlit/         # Streamlit configuration
 └── README.md
 ```
 
@@ -56,42 +62,38 @@ nunchi_dashboard/
 | Contract | Address |
 |----------|---------|
 | wNLP Token | `0x4Cc221cf1444333510a634CE0D8209D2D11B9bbA` |
-| Pendle Market | `0x07a50aEc9B49cD605e66B0cA7e39d781E6Ae0b79` |
+| nHYPE Token | `0x88888884cdc539d00dfb9C9e2Af81baA65fDA356` |
 | SY-wNLP | `0x9b7430dB2C59247E861702B5C85131eEaf03aED3` |
-| PT-wNLP | `0x17a885bb988353f430141890b41f787debc3e107` |
-| YT-wNLP | `0x1f6EA7A91477523b9EAD6DB13f1373eAEB312952` |
+| Pendle Market (Dec 2025) | `0x07a50aEc9B49cD605e66B0cA7e39d781E6Ae0b79` |
+| Pendle Market (Jun 2026) | `0xc1ef65d86f82d5a8160b577a150f65d52d6b266f` |
 
 ## Dashboard Sections
 
-### 1. KPI Summary
-- Total TVL (nLP)
-- 7-day Volume
-- Total Fees Collected
-- Total Users
-- Pendle Deposits
+### 1. Current TVL
+- nLP TVL (stablecoin vault)
+- nHYPE TVL (HYPE vault)
+- Pendle SY TVL
+- Pendle TVL (USD)
 
-### 2. Pendle Deposits/Withdrawals
-- Daily deposits vs withdrawals bar chart
-- Net flow area chart
+### 2. Volume Traded
+- VXX Volume (Hyperliquid HIP-3)
+- US3M Volume (Hyperliquid HIP-3)
+- Total Volume
 
-### 3. Pendle Volume
-- Daily trading volume
-- Cumulative volume
-- Daily fees collected
+### 3. All-Time Totals
+- Total unique users, nLP users, Pendle users
+- nLP deposits, withdrawals, volume, transfers
+- Pendle deposits, withdrawals, volume, transfers
 
-### 4. nLP TVL & Volume
-- TVL over time (area chart)
-- Daily net changes
-- Transfer volume
+### 4. APY & Distributed Yield
+- Underlying APY (TVL-weighted average)
+- Implied APY (PT discount rate)
+- Daily and annual yield calculations
+- APY history chart
 
-### 5. Top Holders
-- Top 20 wNLP holders table
-- Supply distribution pie chart
-
-### 6. User Analytics
-- Daily active users
-- Users by product (nLP vs Pendle)
-- Cumulative unique users
+### 5. Pendle Pools Breakdown
+- Dec 2025 pool (expired) - All-time peak TVL and stats
+- Jun 2026 pool (active) - Current TVL and stats
 
 ## Configuration
 
@@ -102,25 +104,19 @@ Edit `config.py` to customize:
 CACHE_TTL = 300  # 5 minutes
 
 # Default time range
-DEFAULT_DAYS = 30
+DEFAULT_DAYS = 1
 
-# RPC endpoint (can use alternative providers)
-RPC_URL = "https://rpc.hyperliquid.xyz/evm"
+# RPC endpoint
+RPC_URL = "https://hyperliquid.drpc.org"
 ```
 
-## Rate Limits
+## Data Caching
 
-The public HyperEVM RPC has a rate limit of ~100 requests/minute. The dashboard includes:
-- Built-in rate limiting (0.1s delay between requests)
-- 5-minute caching to minimize RPC calls
-- Batch processing for large queries
+The dashboard includes `alltime_cache.json` which contains pre-fetched all-time data. This allows the dashboard to load instantly. The cache is refreshed when you click "Refresh Data" in the sidebar.
+
+If the cache is missing, the first load will fetch all data from Hyperscan (~2-3 minutes).
 
 ## Deployment Options
-
-### Local Development
-```bash
-streamlit run app.py
-```
 
 ### Streamlit Cloud (Free)
 1. Push to GitHub
@@ -144,23 +140,24 @@ Just push to GitHub and connect - all support Python apps.
 ## Troubleshooting
 
 **"No data found"**
-- The contracts may be new or have low activity
-- Try increasing the time range slider
-
-**"Connection error"**
-- HyperEVM RPC may be temporarily unavailable
-- Try refreshing in a few minutes
+- Check if Hyperscan API is accessible
+- Try refreshing the data from the sidebar
 
 **Slow loading**
-- First load fetches data from blockchain (can take 30-60s)
-- Subsequent loads use cached data
+- First load without cache fetches all data (~2-3 min)
+- Subsequent loads use cached data (instant)
+
+**Volume shows $0**
+- Hyperliquid testnet API may be temporarily unavailable
+- HIP-3 pairs may have no recent activity
 
 ## Resources
 
+- [Nunchi App](https://nunchi.trade)
 - [Nunchi Docs](https://docs.nunchi.trade)
 - [HyperEVM Docs](https://hyperliquid.gitbook.io/hyperliquid-docs/hyperevm)
 - [Pendle Docs](https://docs.pendle.finance)
-- [HyperEVMScan](https://hyperevmscan.io)
+- [Hyperscan](https://hyperscan.com)
 
 ## License
 
