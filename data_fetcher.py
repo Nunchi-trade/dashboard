@@ -11,12 +11,29 @@ from typing import List, Dict, Optional
 import pandas as pd
 from cachetools import TTLCache
 
+import json
+import os
+
 from config import (
-    RPC_URL, CONTRACTS, EVENTS, ZERO_ADDRESS, CACHE_TTL
+    RPC_URL, CONTRACTS, EVENTS, ZERO_ADDRESS, CACHE_TTL, TOKEN_DECIMALS, PENDLE_MARKETS
 )
+
+# Calculate divisor for token amounts
+TOKEN_DIVISOR = 10 ** TOKEN_DECIMALS
 
 # Cache for expensive queries
 _cache = TTLCache(maxsize=100, ttl=CACHE_TTL)
+
+# File path for persistent all-time totals cache
+ALLTIME_CACHE_FILE = os.path.join(os.path.dirname(__file__), 'alltime_cache.json')
+
+# Starting blocks for contracts (discovered via binary search)
+CONTRACT_START_BLOCKS = {
+    'wNLP': 20000000,
+    'SY_wNLP': 20000000,
+    'PENDLE_MARKET_DEC': 20000000,
+    'PENDLE_MARKET_JUN': 24000000,
+}
 
 
 def rpc_call(method: str, params: list) -> dict:
@@ -194,7 +211,7 @@ def get_nlp_transfers(days: int = 30) -> pd.DataFrame:
     for log in logs:
         from_addr = decode_address(log['topics'][1]) if len(log['topics']) > 1 else ZERO_ADDRESS
         to_addr = decode_address(log['topics'][2]) if len(log['topics']) > 2 else ZERO_ADDRESS
-        amount = decode_uint256(log['data']) / 1e18
+        amount = decode_uint256(log['data']) / TOKEN_DIVISOR
 
         transfer_type = 'transfer'
         if from_addr.lower() == ZERO_ADDRESS.lower():
@@ -242,7 +259,7 @@ def get_sy_transfers(days: int = 30) -> pd.DataFrame:
     for log in logs:
         from_addr = decode_address(log['topics'][1]) if len(log['topics']) > 1 else ZERO_ADDRESS
         to_addr = decode_address(log['topics'][2]) if len(log['topics']) > 2 else ZERO_ADDRESS
-        amount = decode_uint256(log['data']) / 1e18
+        amount = decode_uint256(log['data']) / TOKEN_DIVISOR
 
         transfer_type = 'transfer'
         if from_addr.lower() == ZERO_ADDRESS.lower():
@@ -266,7 +283,7 @@ def get_sy_transfers(days: int = 30) -> pd.DataFrame:
 
 
 def get_pendle_swaps(days: int = 30) -> pd.DataFrame:
-    """Get Pendle market swap events"""
+    """Get Pendle market swap events from all markets"""
     cache_key = f"pendle_swaps_{days}"
     if cache_key in _cache:
         return _cache[cache_key]
@@ -275,30 +292,36 @@ def get_pendle_swaps(days: int = 30) -> pd.DataFrame:
         int((datetime.now() - timedelta(days=days)).timestamp())
     )
 
-    logs = fetch_logs(
-        CONTRACTS['PENDLE_MARKET'],
-        [EVENTS['SWAP']],
-        from_block
-    )
+    all_logs = []
+    for market_name, market_info in PENDLE_MARKETS.items():
+        logs = fetch_logs(
+            market_info['market'],
+            [EVENTS['SWAP']],
+            from_block
+        )
+        for log in logs:
+            log['market'] = market_name
+        all_logs.extend(logs)
 
-    if not logs:
+    if not all_logs:
         return pd.DataFrame()
 
-    logs = add_block_timestamps(logs)
+    all_logs = add_block_timestamps(all_logs)
 
     data = []
-    for log in logs:
+    for log in all_logs:
         caller = decode_address(log['topics'][1]) if len(log['topics']) > 1 else ZERO_ADDRESS
         receiver = decode_address(log['topics'][2]) if len(log['topics']) > 2 else ZERO_ADDRESS
 
-        net_pt_out = decode_int256(log['data'], 0) / 1e18
-        net_sy_out = decode_int256(log['data'], 1) / 1e18
-        sy_fee = decode_uint256(log['data'], 2) / 1e18
+        net_pt_out = decode_int256(log['data'], 0) / TOKEN_DIVISOR
+        net_sy_out = decode_int256(log['data'], 1) / TOKEN_DIVISOR
+        sy_fee = decode_uint256(log['data'], 2) / TOKEN_DIVISOR
 
         data.append({
             'timestamp': log['timestamp'],
             'block': log['block_number'],
             'tx_hash': log['tx_hash'],
+            'market': log.get('market', 'unknown'),
             'caller': caller,
             'receiver': receiver,
             'net_pt_out': net_pt_out,
@@ -313,7 +336,7 @@ def get_pendle_swaps(days: int = 30) -> pd.DataFrame:
 
 
 def get_pendle_lp_events(days: int = 30) -> pd.DataFrame:
-    """Get Pendle LP mint/burn events"""
+    """Get Pendle LP mint/burn events from all markets"""
     cache_key = f"pendle_lp_{days}"
     if cache_key in _cache:
         return _cache[cache_key]
@@ -322,10 +345,14 @@ def get_pendle_lp_events(days: int = 30) -> pd.DataFrame:
         int((datetime.now() - timedelta(days=days)).timestamp())
     )
 
-    mint_logs = fetch_logs(CONTRACTS['PENDLE_MARKET'], [EVENTS['MINT']], from_block)
-    burn_logs = fetch_logs(CONTRACTS['PENDLE_MARKET'], [EVENTS['BURN']], from_block)
+    all_logs = []
+    for market_name, market_info in PENDLE_MARKETS.items():
+        mint_logs = fetch_logs(market_info['market'], [EVENTS['MINT']], from_block)
+        burn_logs = fetch_logs(market_info['market'], [EVENTS['BURN']], from_block)
+        for log in mint_logs + burn_logs:
+            log['market'] = market_name
+        all_logs.extend(mint_logs + burn_logs)
 
-    all_logs = mint_logs + burn_logs
     if not all_logs:
         return pd.DataFrame()
 
@@ -335,12 +362,13 @@ def get_pendle_lp_events(days: int = 30) -> pd.DataFrame:
     for log in all_logs:
         is_mint = log['topics'][0] == EVENTS['MINT']
         user = decode_address(log['topics'][1]) if len(log['topics']) > 1 else ZERO_ADDRESS
-        lp_amount = decode_uint256(log['data'], 0) / 1e18
+        lp_amount = decode_uint256(log['data'], 0) / TOKEN_DIVISOR
 
         data.append({
             'timestamp': log['timestamp'],
             'block': log['block_number'],
             'tx_hash': log['tx_hash'],
+            'market': log.get('market', 'unknown'),
             'user': user,
             'lp_amount': lp_amount,
             'action': 'mint' if is_mint else 'burn',
@@ -549,17 +577,35 @@ def get_kpi_summary(days: int = 30) -> Dict:
         tvl = mints - burns
     else:
         tvl = 0
+        mints = 0
+        burns = 0
 
-    # Calculate volume (7d)
+    # nLP Volume = total deposits + withdrawals (mints + burns)
+    nlp_volume = mints + burns if not nlp_df.empty else 0
+
+    # Calculate swap volume (7d)
     if not swap_df.empty:
         seven_days_ago = datetime.now() - timedelta(days=7)
         swap_df['timestamp'] = pd.to_datetime(swap_df['timestamp'])
         recent_swaps = swap_df[swap_df['timestamp'] >= seven_days_ago]
-        volume_7d = recent_swaps['volume'].sum() if not recent_swaps.empty else 0
+        swap_volume_7d = recent_swaps['volume'].sum() if not recent_swaps.empty else 0
+        total_swap_volume = swap_df['volume'].sum()
         total_fees = swap_df['fee'].sum()
     else:
-        volume_7d = 0
+        swap_volume_7d = 0
+        total_swap_volume = 0
         total_fees = 0
+
+    # Pendle deposits/withdrawals
+    if not sy_df.empty:
+        pendle_deposits = sy_df[sy_df['type'] == 'deposit']['amount'].sum()
+        pendle_withdrawals = sy_df[sy_df['type'] == 'withdrawal']['amount'].sum()
+    else:
+        pendle_deposits = 0
+        pendle_withdrawals = 0
+
+    # Total Pendle Volume = swap volume + deposits + withdrawals
+    pendle_total_volume = total_swap_volume + pendle_deposits + pendle_withdrawals
 
     # Count users
     all_users = set()
@@ -570,21 +616,724 @@ def get_kpi_summary(days: int = 30) -> Dict:
         all_users.update(swap_df['caller'].str.lower().tolist())
     all_users.discard(ZERO_ADDRESS.lower())
 
-    # Pendle deposits
-    if not sy_df.empty:
-        pendle_deposits = sy_df[sy_df['type'] == 'deposit']['amount'].sum()
-    else:
-        pendle_deposits = 0
-
     return {
         'tvl': round(tvl, 2),
-        'volume_7d': round(volume_7d, 2),
+        'nlp_volume': round(nlp_volume, 2),
+        'swap_volume_7d': round(swap_volume_7d, 2),
+        'pendle_total_volume': round(pendle_total_volume, 2),
+        'pendle_deposits': round(pendle_deposits, 2),
+        'pendle_withdrawals': round(pendle_withdrawals, 2),
         'total_fees': round(total_fees, 4),
         'total_users': len(all_users),
-        'pendle_deposits': round(pendle_deposits, 2),
     }
+
+
+def get_market_stats(days: int = 30) -> Dict:
+    """Get stats per Pendle market"""
+    swap_df = get_pendle_swaps(days)
+    lp_df = get_pendle_lp_events(days)
+
+    market_stats = {}
+
+    for market_name in PENDLE_MARKETS.keys():
+        # Swap stats for this market
+        if not swap_df.empty:
+            market_swaps = swap_df[swap_df['market'] == market_name]
+            swap_volume = market_swaps['volume'].sum() if not market_swaps.empty else 0
+            swap_count = len(market_swaps)
+            fees = market_swaps['fee'].sum() if not market_swaps.empty else 0
+        else:
+            swap_volume = 0
+            swap_count = 0
+            fees = 0
+
+        # LP stats for this market
+        if not lp_df.empty:
+            market_lp = lp_df[lp_df['market'] == market_name]
+            mints = market_lp[market_lp['action'] == 'mint']['lp_amount'].sum() if not market_lp.empty else 0
+            burns = market_lp[market_lp['action'] == 'burn']['lp_amount'].sum() if not market_lp.empty else 0
+        else:
+            mints = 0
+            burns = 0
+
+        market_stats[market_name] = {
+            'swap_volume': round(swap_volume, 2),
+            'swap_count': swap_count,
+            'fees': round(fees, 4),
+            'lp_mints': round(mints, 2),
+            'lp_burns': round(burns, 2),
+            'net_lp': round(mints - burns, 2),
+        }
+
+    return market_stats
+
+
+def get_total_supply(contract_address: str, decimals: int = TOKEN_DECIMALS) -> float:
+    """Get total supply of a token (instant, accurate TVL)"""
+    # totalSupply() selector: 0x18160ddd
+    result = rpc_call("eth_call", [{"to": contract_address, "data": "0x18160ddd"}, "latest"])
+    if result:
+        return int(result, 16) / (10 ** decimals)
+    return 0
+
+
+def get_accurate_tvl() -> Dict:
+    """Get accurate TVL using totalSupply() - instant and accurate"""
+    cache_key = "accurate_tvl"
+    if cache_key in _cache:
+        return _cache[cache_key]
+
+    wNLP_supply = get_total_supply(CONTRACTS['wNLP'], decimals=6)
+    SY_supply = get_total_supply(CONTRACTS['SY_wNLP'], decimals=6)
+    nHYPE_supply = get_total_supply(CONTRACTS['nHYPE'], decimals=18)
+
+    result = {
+        'wNLP_tvl': round(wNLP_supply, 2),
+        'SY_tvl': round(SY_supply, 2),
+        'nHYPE_tvl': round(nHYPE_supply, 2),
+    }
+
+    _cache[cache_key] = result
+    return result
+
+
+def load_alltime_cache() -> Dict:
+    """Load all-time totals from disk cache"""
+    if os.path.exists(ALLTIME_CACHE_FILE):
+        try:
+            with open(ALLTIME_CACHE_FILE, 'r') as f:
+                return json.load(f)
+        except:
+            pass
+    return {}
+
+
+def save_alltime_cache(data: Dict):
+    """Save all-time totals to disk cache"""
+    try:
+        with open(ALLTIME_CACHE_FILE, 'w') as f:
+            json.dump(data, f)
+    except Exception as e:
+        print(f"Failed to save cache: {e}")
+
+
+def fetch_alltime_totals(contract: str, start_block: int, progress_callback=None) -> Dict:
+    """Fetch all-time transfer totals for a contract"""
+    current_block = get_current_block()
+    if current_block == 0:
+        return {'mints': 0, 'burns': 0, 'transfers': 0, 'last_block': 0}
+
+    total_mints = 0
+    total_burns = 0
+    total_transfers = 0
+    batch_size = 900
+    current_from = start_block
+
+    while current_from <= current_block:
+        current_to = min(current_from + batch_size, current_block)
+
+        params = [{
+            "fromBlock": hex(current_from),
+            "toBlock": hex(current_to),
+            "address": contract,
+            "topics": [EVENTS['TRANSFER']],
+        }]
+
+        result = rpc_call("eth_getLogs", params)
+
+        if isinstance(result, list):
+            for log in result:
+                from_addr = '0x' + log['topics'][1][-40:] if len(log['topics']) > 1 else ZERO_ADDRESS
+                to_addr = '0x' + log['topics'][2][-40:] if len(log['topics']) > 2 else ZERO_ADDRESS
+                data = log.get('data', '0x')
+                amount = int(data, 16) / TOKEN_DIVISOR if data and data != '0x' else 0
+
+                if from_addr.lower() == ZERO_ADDRESS.lower():
+                    total_mints += amount
+                elif to_addr.lower() == ZERO_ADDRESS.lower():
+                    total_burns += amount
+                else:
+                    total_transfers += amount
+
+        if progress_callback:
+            progress = (current_from - start_block) / (current_block - start_block)
+            progress_callback(progress)
+
+        time.sleep(0.05)  # Rate limiting
+        current_from = current_to + 1
+
+    return {
+        'mints': round(total_mints, 2),
+        'burns': round(total_burns, 2),
+        'transfers': round(total_transfers, 2),
+        'last_block': current_block,
+    }
+
+
+def get_alltime_totals(force_refresh: bool = False) -> Dict:
+    """Get all-time totals from cache or fetch if needed"""
+    cache = load_alltime_cache()
+
+    current_block = get_current_block()
+
+    # Check if we need to update (cache is empty or stale by >10000 blocks)
+    needs_update = {}
+    for name, contract in [('wNLP', CONTRACTS['wNLP']), ('SY_wNLP', CONTRACTS['SY_wNLP'])]:
+        if force_refresh or name not in cache:
+            needs_update[name] = CONTRACT_START_BLOCKS.get(name, 20000000)
+        elif current_block - cache[name].get('last_block', 0) > 10000:
+            # Just fetch from last block instead of from beginning
+            needs_update[name] = cache[name].get('last_block', CONTRACT_START_BLOCKS.get(name, 20000000))
+
+    # Return cached data if no update needed
+    if not needs_update and cache:
+        return cache
+
+    # Fetch missing/stale data
+    for name, start_block in needs_update.items():
+        contract = CONTRACTS['wNLP'] if name == 'wNLP' else CONTRACTS['SY_wNLP']
+        print(f"Fetching all-time data for {name} from block {start_block}...")
+
+        new_data = fetch_alltime_totals(contract, start_block)
+
+        if name in cache:
+            # Add to existing totals
+            cache[name]['mints'] = round(cache[name].get('mints', 0) + new_data['mints'], 2)
+            cache[name]['burns'] = round(cache[name].get('burns', 0) + new_data['burns'], 2)
+            cache[name]['transfers'] = round(cache[name].get('transfers', 0) + new_data['transfers'], 2)
+            cache[name]['last_block'] = new_data['last_block']
+        else:
+            cache[name] = new_data
+
+    save_alltime_cache(cache)
+    return cache
+
+
+def get_apy_history(days: int = 7) -> pd.DataFrame:
+    """Fetch historical APY data from Pendle API"""
+    cache_key = f"apy_history_{days}"
+    if cache_key in _cache:
+        return _cache[cache_key]
+
+    all_data = []
+    for market_name, market_info in PENDLE_MARKETS.items():
+        try:
+            response = requests.get(
+                f"https://api-v2.pendle.finance/core/v1/999/markets/{market_info['market']}/apy-history",
+                timeout=15
+            )
+            data = response.json()
+
+            for entry in data.get('results', []):
+                all_data.append({
+                    'timestamp': pd.to_datetime(entry['timestamp']),
+                    'market': market_name,
+                    'underlying_apy': entry.get('underlyingApy', 0) * 100,
+                    'implied_apy': entry.get('impliedApy', 0) * 100,
+                })
+        except Exception as e:
+            print(f"Failed to fetch APY history for {market_name}: {e}")
+
+    if not all_data:
+        return pd.DataFrame()
+
+    df = pd.DataFrame(all_data)
+    # Filter to requested days - convert timestamp to naive datetime for comparison
+    cutoff = datetime.now() - timedelta(days=days)
+    df['timestamp'] = pd.to_datetime(df['timestamp']).dt.tz_localize(None)
+    df = df[df['timestamp'] >= cutoff]
+
+    _cache[cache_key] = df
+    return df
+
+
+def get_pendle_apy() -> Dict:
+    """Fetch APY data from Pendle API"""
+    cache_key = "pendle_apy"
+    if cache_key in _cache:
+        return _cache[cache_key]
+
+    try:
+        response = requests.get(
+            "https://api-v2.pendle.finance/core/v1/999/markets",
+            timeout=10
+        )
+        data = response.json()
+
+        apy_data = {}
+        for market in data.get('results', []):
+            name = market.get('proName', market.get('name', ''))
+            if 'wNLP' in name or 'nLP' in name.lower():
+                addr = market.get('address', '').lower()
+                underlying_apy = market.get('underlyingInterestApy', 0) * 100
+                tvl_usd = market.get('liquidity', {}).get('usd', 0)
+
+                # Calculate distributed yield (APY × TVL)
+                daily_yield = (underlying_apy / 100 / 365) * tvl_usd
+                weekly_yield = daily_yield * 7
+                monthly_yield = daily_yield * 30
+                annual_yield = (underlying_apy / 100) * tvl_usd
+
+                apy_data[addr] = {
+                    'name': name,
+                    'implied_apy': round(market.get('impliedApy', 0) * 100, 2),
+                    'underlying_apy': round(underlying_apy, 2),
+                    'tvl_usd': round(tvl_usd, 2),
+                    'pt_price': market.get('pt', {}).get('price', {}).get('usd', 0),
+                    'yt_price': market.get('yt', {}).get('price', {}).get('usd', 0),
+                    'expiry': market.get('expiry', ''),
+                    # Distributed yield calculations
+                    'daily_yield': round(daily_yield, 2),
+                    'weekly_yield': round(weekly_yield, 2),
+                    'monthly_yield': round(monthly_yield, 2),
+                    'annual_yield': round(annual_yield, 2),
+                }
+
+        _cache[cache_key] = apy_data
+        return apy_data
+    except Exception as e:
+        print(f"Failed to fetch Pendle APY: {e}")
+        return {}
 
 
 def clear_cache():
     """Clear all cached data"""
     _cache.clear()
+
+
+# ============================================================================
+# HYPERSCAN API FUNCTIONS (for efficient all-time data fetching)
+# ============================================================================
+
+HYPERSCAN_API = "https://www.hyperscan.com/api/v2"
+
+
+def fetch_all_token_transfers_hyperscan(token_address: str) -> Dict:
+    """
+    Fetch all transfers of a token from Hyperscan API.
+    Returns totals for mints, burns, and regular transfers.
+    """
+    url = f"{HYPERSCAN_API}/tokens/{token_address}/transfers"
+
+    all_transfers = []
+    next_params = None
+    page = 0
+
+    print(f"Fetching transfers for {token_address[:10]}... via Hyperscan API")
+
+    while True:
+        page += 1
+        params = next_params or {}
+
+        try:
+            resp = requests.get(url, params=params, timeout=30)
+            if resp.status_code != 200:
+                print(f"  Error on page {page}: {resp.status_code}")
+                break
+
+            data = resp.json()
+            items = data.get('items', [])
+            all_transfers.extend(items)
+
+            if page % 20 == 0:
+                print(f"  Page {page}: {len(all_transfers)} transfers...")
+
+            next_params = data.get('next_page_params')
+            if not next_params:
+                break
+
+            time.sleep(0.1)  # Rate limiting
+
+        except Exception as e:
+            print(f"  Request failed: {e}")
+            break
+
+    print(f"  Total transfers: {len(all_transfers)}")
+
+    # Calculate totals and track unique users
+    mints = 0.0
+    burns = 0.0
+    transfers = 0.0
+    unique_users = set()
+
+    for tx in all_transfers:
+        from_addr = tx.get('from', {}).get('hash', '').lower()
+        to_addr = tx.get('to', {}).get('hash', '').lower()
+        value = int(tx.get('total', {}).get('value', '0'))
+        decimals = int(tx.get('total', {}).get('decimals', '6') or '6')
+        amount = value / (10 ** decimals)
+
+        # Track unique users (exclude zero address)
+        if from_addr != ZERO_ADDRESS.lower():
+            unique_users.add(from_addr)
+        if to_addr != ZERO_ADDRESS.lower():
+            unique_users.add(to_addr)
+
+        if from_addr == ZERO_ADDRESS.lower():
+            mints += amount
+        elif to_addr == ZERO_ADDRESS.lower():
+            burns += amount
+        else:
+            transfers += amount
+
+    return {
+        'mints': round(mints, 2),
+        'burns': round(burns, 2),
+        'transfers': round(transfers, 2),
+        'total_count': len(all_transfers),
+        'unique_users': len(unique_users),
+        'user_addresses': unique_users,  # Keep for deduplication across tokens
+    }
+
+
+def get_alltime_totals_hyperscan(force_refresh: bool = False) -> Dict:
+    """
+    Get all-time totals using Hyperscan API (much faster than RPC).
+    Returns cached data if available, otherwise fetches from API.
+    """
+    cache_key = "alltime_hyperscan"
+
+    # Check memory cache first
+    if not force_refresh and cache_key in _cache:
+        return _cache[cache_key]
+
+    # Check disk cache
+    cache = load_alltime_cache()
+    if not force_refresh and 'hyperscan' in cache:
+        _cache[cache_key] = cache['hyperscan']
+        return cache['hyperscan']
+
+    # Fetch from Hyperscan API
+    print("Fetching all-time totals from Hyperscan API...")
+
+    wNLP_data = fetch_all_token_transfers_hyperscan(CONTRACTS['wNLP'])
+    SY_data = fetch_all_token_transfers_hyperscan(CONTRACTS['SY_wNLP'])
+
+    # Combine unique users from both tokens (deduplicated)
+    all_users = wNLP_data['user_addresses'] | SY_data['user_addresses']
+
+    result = {
+        'wNLP': {
+            'deposits': wNLP_data['mints'],
+            'withdrawals': wNLP_data['burns'],
+            'volume': wNLP_data['mints'] + wNLP_data['burns'],
+            'transfers': wNLP_data['transfers'],
+            'transfer_count': wNLP_data['total_count'],
+            'unique_users': wNLP_data['unique_users'],
+        },
+        'SY_wNLP': {
+            'deposits': SY_data['mints'],
+            'withdrawals': SY_data['burns'],
+            'volume': SY_data['mints'] + SY_data['burns'],
+            'transfers': SY_data['transfers'],
+            'transfer_count': SY_data['total_count'],
+            'unique_users': SY_data['unique_users'],
+        },
+        'total_unique_users': len(all_users),
+        'timestamp': datetime.now().isoformat(),
+    }
+
+    # Save to disk cache
+    cache['hyperscan'] = result
+    save_alltime_cache(cache)
+
+    # Save to memory cache
+    _cache[cache_key] = result
+
+    return result
+
+
+def fetch_pendle_market_logs_hyperscan(market_address: str, market_name: str) -> Dict:
+    """
+    Fetch all logs for a Pendle market contract via Hyperscan API.
+    Returns swap counts and volume estimates.
+    """
+    url = f"{HYPERSCAN_API}/addresses/{market_address}/logs"
+
+    all_logs = []
+    next_params = None
+    page = 0
+
+    print(f"Fetching logs for {market_name} ({market_address[:10]}...)...")
+
+    while True:
+        page += 1
+        params = next_params or {}
+
+        try:
+            resp = requests.get(url, params=params, timeout=30)
+            if resp.status_code != 200:
+                print(f"  Error on page {page}: {resp.status_code}")
+                break
+
+            data = resp.json()
+            items = data.get('items', [])
+            all_logs.extend(items)
+
+            if page % 20 == 0:
+                print(f"  Page {page}: {len(all_logs)} logs...")
+
+            next_params = data.get('next_page_params')
+            if not next_params:
+                break
+
+            time.sleep(0.1)
+
+        except Exception as e:
+            print(f"  Request failed: {e}")
+            break
+
+    print(f"  Total logs: {len(all_logs)}")
+
+    # Count events by topic (Swap, Mint, Burn)
+    SWAP_TOPIC = EVENTS['SWAP'].lower()
+    MINT_TOPIC = EVENTS['MINT'].lower()
+    BURN_TOPIC = EVENTS['BURN'].lower()
+
+    swap_count = 0
+    mint_count = 0
+    burn_count = 0
+    unique_users = set()
+
+    for log in all_logs:
+        # Topics is an array - first element is the event signature
+        topics = log.get('topics', [])
+        topic = (topics[0] or '').lower() if topics and topics[0] else ''
+
+        # Try to get transaction sender from indexed parameters
+        if len(topics) > 1 and topics[1]:
+            # Second topic is usually the 'from' or 'caller' address
+            topic1 = topics[1] or ''
+            if len(topic1) >= 40:
+                addr = '0x' + topic1[-40:]
+                if addr.lower() != ZERO_ADDRESS.lower():
+                    unique_users.add(addr.lower())
+
+        if topic == SWAP_TOPIC:
+            swap_count += 1
+        elif topic == MINT_TOPIC:
+            mint_count += 1
+        elif topic == BURN_TOPIC:
+            burn_count += 1
+
+    return {
+        'swap_count': swap_count,
+        'mint_count': mint_count,
+        'burn_count': burn_count,
+        'total_logs': len(all_logs),
+        'unique_users': len(unique_users),
+    }
+
+
+def get_alltime_pendle_markets_hyperscan(force_refresh: bool = False) -> Dict:
+    """
+    Get all-time stats for both Pendle markets via Hyperscan API.
+    """
+    cache_key = "alltime_pendle_markets"
+
+    if not force_refresh and cache_key in _cache:
+        return _cache[cache_key]
+
+    cache = load_alltime_cache()
+    if not force_refresh and 'pendle_markets' in cache:
+        _cache[cache_key] = cache['pendle_markets']
+        return cache['pendle_markets']
+
+    print("Fetching all-time Pendle market stats from Hyperscan API...")
+
+    result = {}
+    for market_name, market_info in PENDLE_MARKETS.items():
+        data = fetch_pendle_market_logs_hyperscan(market_info['market'], market_name)
+        result[market_name] = {
+            'market_address': market_info['market'],
+            'expiry': market_info['expiry'],
+            'swap_count': data['swap_count'],
+            'mint_count': data['mint_count'],
+            'burn_count': data['burn_count'],
+            'total_events': data['total_logs'],
+            'unique_users': data['unique_users'],
+        }
+
+    result['timestamp'] = datetime.now().isoformat()
+
+    cache['pendle_markets'] = result
+    save_alltime_cache(cache)
+    _cache[cache_key] = result
+
+    return result
+
+
+def fetch_market_peak_tvl(market_address: str) -> Dict:
+    """
+    Calculate peak TVL for a Pendle market by analyzing SY token transfers.
+    Returns peak_tvl, peak_date, and current_balance.
+    """
+    SY_TOKEN = CONTRACTS['SY_wNLP']
+
+    url = f"{HYPERSCAN_API}/addresses/{market_address}/token-transfers"
+    params = {"token": SY_TOKEN, "type": "ERC-20"}
+
+    all_transfers = []
+    page = 0
+
+    while True:
+        page += 1
+        try:
+            resp = requests.get(url, params=params, timeout=30)
+            if resp.status_code != 200:
+                break
+            data = resp.json()
+            items = data.get('items', [])
+            all_transfers.extend(items)
+
+            next_params = data.get('next_page_params')
+            if not next_params:
+                break
+            params = next_params
+            params["token"] = SY_TOKEN
+            params["type"] = "ERC-20"
+            time.sleep(0.1)
+        except Exception as e:
+            print(f"Error fetching transfers: {e}")
+            break
+
+    if not all_transfers:
+        return {'peak_tvl': 0, 'peak_date': None, 'current_balance': 0}
+
+    # Sort by timestamp (oldest first)
+    all_transfers.sort(key=lambda x: x['timestamp'])
+
+    # Calculate running balance
+    balance = 0
+    peak_balance = 0
+    peak_date = None
+    market_lower = market_address.lower()
+
+    for t in all_transfers:
+        from_addr = t['from']['hash'].lower()
+        to_addr = t['to']['hash'].lower()
+        value = int(t['total']['value']) / (10 ** TOKEN_DECIMALS)
+        ts = t['timestamp']
+
+        if to_addr == market_lower:
+            balance += value
+        elif from_addr == market_lower:
+            balance -= value
+
+        if balance > peak_balance:
+            peak_balance = balance
+            peak_date = ts
+
+    return {
+        'peak_tvl': round(peak_balance, 2),
+        'peak_date': peak_date,
+        'current_balance': round(balance, 2)
+    }
+
+
+def get_pendle_peak_tvls(force_refresh: bool = False) -> Dict:
+    """
+    Get peak TVL data for all Pendle markets.
+    """
+    cache_key = "pendle_peak_tvls"
+
+    if not force_refresh and cache_key in _cache:
+        return _cache[cache_key]
+
+    cache = load_alltime_cache()
+    if not force_refresh and 'pendle_peak_tvls' in cache:
+        _cache[cache_key] = cache['pendle_peak_tvls']
+        return cache['pendle_peak_tvls']
+
+    print("Fetching peak TVL data for Pendle markets...")
+
+    result = {}
+    for market_name, market_info in PENDLE_MARKETS.items():
+        print(f"  Processing {market_name}...")
+        tvl_data = fetch_market_peak_tvl(market_info['market'])
+        result[market_name] = tvl_data
+
+    result['timestamp'] = datetime.now().isoformat()
+
+    cache['pendle_peak_tvls'] = result
+    save_alltime_cache(cache)
+    _cache[cache_key] = result
+
+    return result
+
+
+# ============================================================================
+# HYPERLIQUID HIP-3 VOLUME DATA
+# ============================================================================
+
+HYPERLIQUID_TESTNET_API = "https://api.hyperliquid-testnet.xyz/info"
+
+HIP3_PAIRS = ["nunchi:VXX", "nunchi:US3M"]
+
+
+def fetch_hip3_volume(coin: str) -> Dict:
+    """
+    Fetch all-time volume for a HIP-3 pair from daily candles.
+    Returns base volume and notional volume (USD).
+    """
+    payload = {
+        "type": "candleSnapshot",
+        "req": {
+            "coin": coin,
+            "interval": "1d",
+            "startTime": 0,
+            "endTime": 9999999999999
+        }
+    }
+
+    try:
+        resp = requests.post(HYPERLIQUID_TESTNET_API, json=payload, timeout=30)
+        data = resp.json()
+
+        if not isinstance(data, list):
+            return {'base_volume': 0, 'notional_volume': 0, 'days': 0}
+
+        total_base_vol = 0
+        total_notional_vol = 0
+
+        for candle in data:
+            base_vol = float(candle.get('v', 0))
+            o = float(candle.get('o', 0))
+            c = float(candle.get('c', 0))
+            avg_px = (o + c) / 2 if (o + c) > 0 else 0
+
+            total_base_vol += base_vol
+            total_notional_vol += base_vol * avg_px
+
+        return {
+            'base_volume': round(total_base_vol, 2),
+            'notional_volume': round(total_notional_vol, 2),
+            'days': len(data)
+        }
+    except Exception as e:
+        print(f"Error fetching HIP-3 volume for {coin}: {e}")
+        return {'base_volume': 0, 'notional_volume': 0, 'days': 0}
+
+
+def get_hip3_volumes() -> Dict:
+    """
+    Get all-time volume data for Nunchi HIP-3 pairs on Hyperliquid testnet.
+    """
+    cache_key = "hip3_volumes"
+
+    if cache_key in _cache:
+        return _cache[cache_key]
+
+    result = {}
+    total_notional = 0
+
+    for pair in HIP3_PAIRS:
+        vol_data = fetch_hip3_volume(pair)
+        result[pair] = vol_data
+        total_notional += vol_data['notional_volume']
+
+    result['total_notional'] = round(total_notional, 2)
+    result['timestamp'] = datetime.now().isoformat()
+
+    _cache[cache_key] = result
+    return result

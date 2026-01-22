@@ -4,17 +4,31 @@ Contract addresses and event signatures for HyperEVM
 """
 
 # HyperEVM RPC
-RPC_URL = "https://rpc.hyperliquid.xyz/evm"
+RPC_URL = "https://hyperliquid.drpc.org"
 CHAIN_ID = 999
 
 # Contract Addresses
 CONTRACTS = {
     "wNLP": "0x4Cc221cf1444333510a634CE0D8209D2D11B9bbA",
-    "PENDLE_MARKET": "0x07a50aEc9B49cD605e66B0cA7e39d781E6Ae0b79",
     "SY_wNLP": "0x9b7430dB2C59247E861702B5C85131eEaf03aED3",
-    "PT_wNLP": "0x17a885bb988353f430141890b41f787debc3e107",
-    "YT_wNLP": "0x1f6EA7A91477523b9EAD6DB13f1373eAEB312952",
     "PENDLE_ROUTER": "0x888888888889758f76e7103c6cbf23abbf58f946",
+    "nHYPE": "0x88888884cdc539d00dfb9C9e2Af81baA65fDA356",
+}
+
+# Pendle Markets (multiple pools for wNLP)
+PENDLE_MARKETS = {
+    "26 Dec 2025": {
+        "market": "0x07a50aEc9B49cD605e66B0cA7e39d781E6Ae0b79",
+        "pt": "0x17a885bb988353f430141890b41f787debc3e107",
+        "yt": "0x1f6EA7A91477523b9EAD6DB13f1373eAEB312952",
+        "expiry": "2025-12-26",
+    },
+    "25 Jun 2026": {
+        "market": "0xc1ef65d86f82d5a8160b577a150f65d52d6b266f",
+        "pt": "0x4eb660811bcb71174b04a1f102f784efe794a66b",
+        "yt": None,
+        "expiry": "2026-06-25",
+    },
 }
 
 # Event Topic Signatures (keccak256 hashes)
@@ -39,6 +53,9 @@ EVENTS = {
 ZERO_ADDRESS = "0x0000000000000000000000000000000000000000"
 ZERO_TOPIC = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
+# Token decimals (wNLP and SY tokens use 6 decimals)
+TOKEN_DECIMALS = 6
+
 # Dashboard settings
 CACHE_TTL = 300  # 5 minutes
-DEFAULT_DAYS = 7  # Start with 7 days for faster load
+DEFAULT_DAYS = 1  # Start with 1 day for fastest load
