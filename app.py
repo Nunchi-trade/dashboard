@@ -844,7 +844,8 @@ if testnet_data:
         s1_total = s1.get('total', {})
         st.metric("USERS", f"{s1_total.get('total_users', 0):,}")
         st.metric("VOLUME", f"${s1_total.get('total_volume', 0):,.2f}")
-        st.metric("AVG / USER", f"${s1_total.get('avg_per_user', 0):,.2f}")
+        st.metric("NET PROFIT", f"${s1_total.get('net_profit', 0):,.2f}")
+        st.metric("AVG TIME TO CLOSE", s1_total.get('avg_time_to_close_formatted', 'N/A'))
 
         # By Chain
         st.markdown("**By Chain:**")
@@ -864,7 +865,8 @@ if testnet_data:
         s2_total = s2.get('total', {})
         st.metric("USERS", f"{s2_total.get('total_users', 0):,}")
         st.metric("VOLUME", f"${s2_total.get('total_volume', 0):,.2f}")
-        st.metric("AVG / USER", f"${s2_total.get('avg_per_user', 0):,.2f}")
+        st.metric("NET PROFIT", f"${s2_total.get('net_profit', 0):,.2f}")
+        st.metric("AVG TIME TO CLOSE", s2_total.get('avg_time_to_close_formatted', 'N/A'))
 
         # By Chain
         st.markdown("**By Chain:**")

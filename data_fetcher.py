@@ -1420,17 +1420,68 @@ def process_simulator_data(data: Dict) -> Dict:
     }
 
 
+def parse_time_string(time_str: str) -> float:
+    """
+    Parse time string format "HH:MM:SS:ms" to total hours.
+    Returns 0 if invalid or zero time.
+    """
+    if not time_str or time_str == "00:00:00:000":
+        return 0
+    try:
+        parts = time_str.split(':')
+        if len(parts) >= 3:
+            hours = int(parts[0])
+            minutes = int(parts[1])
+            seconds = float(parts[2]) if len(parts) == 3 else int(parts[2])
+            # Convert to total hours
+            return hours + minutes / 60 + seconds / 3600
+    except:
+        pass
+    return 0
+
+
+def format_hours_to_readable(hours: float) -> str:
+    """Convert hours to readable format like '5d 12h' or '2h 30m'."""
+    if hours <= 0:
+        return "N/A"
+
+    days = int(hours // 24)
+    remaining_hours = int(hours % 24)
+
+    if days > 0:
+        return f"{days}d {remaining_hours}h"
+    elif hours >= 1:
+        minutes = int((hours % 1) * 60)
+        return f"{int(hours)}h {minutes}m"
+    else:
+        minutes = int(hours * 60)
+        return f"{minutes}m"
+
+
 def process_season_one_data(data: Dict) -> Dict:
     """Process Season One data with asset mapping."""
     by_contract = data.get('byContract', [])
     by_chain = data.get('byChain', {})
     total = data.get('total', {})
 
-    # Map assets to contracts
+    # Map assets to contracts and collect net profit / time data
     contracts_with_assets = []
+    total_net_profit = 0
+    total_time_to_close_hours = 0
+    contracts_with_close_time = 0
+
     for contract in by_contract:
         addr = contract.get('contractAddress', '')
         asset = SEASON_ONE_ASSET_MAP.get(addr, 'Unknown')
+        net_profit = contract.get('netProfit', 0)
+        avg_time_close = contract.get('avgTimeToClose', '00:00:00:000')
+        time_hours = parse_time_string(avg_time_close)
+
+        total_net_profit += net_profit
+        if time_hours > 0:
+            total_time_to_close_hours += time_hours
+            contracts_with_close_time += 1
+
         contracts_with_assets.append({
             'contract': addr,
             'chain': contract.get('chain'),
@@ -1439,6 +1490,8 @@ def process_season_one_data(data: Dict) -> Dict:
             'users': contract.get('totalUsers', 0),
             'volume': contract.get('totalVolume', 0),
             'avg_per_user': contract.get('averageVolumePerUser', 0),
+            'net_profit': net_profit,
+            'avg_time_to_close': time_hours,
         })
 
     # Aggregate by asset
@@ -1446,9 +1499,10 @@ def process_season_one_data(data: Dict) -> Dict:
     for c in contracts_with_assets:
         asset = c['asset']
         if asset not in by_asset:
-            by_asset[asset] = {'users': 0, 'volume': 0}
+            by_asset[asset] = {'users': 0, 'volume': 0, 'net_profit': 0}
         by_asset[asset]['users'] += c['users']
         by_asset[asset]['volume'] += c['volume']
+        by_asset[asset]['net_profit'] += c['net_profit']
 
     # Process by chain
     chains = {}
@@ -1460,6 +1514,9 @@ def process_season_one_data(data: Dict) -> Dict:
             'avg_per_user': chain_data.get('averageVolumePerUser', 0),
         }
 
+    # Calculate average time to close
+    avg_time_to_close = total_time_to_close_hours / contracts_with_close_time if contracts_with_close_time > 0 else 0
+
     return {
         'by_contract': contracts_with_assets,
         'by_asset': by_asset,
@@ -1468,6 +1525,9 @@ def process_season_one_data(data: Dict) -> Dict:
             'total_users': total.get('totalUsers', 0),
             'total_volume': total.get('totalVolume', 0),
             'avg_per_user': total.get('averageVolumePerUser', 0),
+            'net_profit': total_net_profit,
+            'avg_time_to_close_hours': avg_time_to_close,
+            'avg_time_to_close_formatted': format_hours_to_readable(avg_time_to_close),
         }
     }
 
@@ -1479,9 +1539,22 @@ def process_season_two_data(data: Dict) -> Dict:
     by_chain = data.get('byChain', {})
     total = data.get('total', {})
 
-    # Process contracts
+    # Process contracts and collect net profit / time data
     contracts = []
+    total_net_profit = 0
+    total_time_to_close_hours = 0
+    contracts_with_close_time = 0
+
     for contract in by_contract:
+        net_profit = contract.get('netProfit', 0)
+        avg_time_close = contract.get('avgTimeToClose', '00:00:00:000')
+        time_hours = parse_time_string(avg_time_close)
+
+        total_net_profit += net_profit
+        if time_hours > 0:
+            total_time_to_close_hours += time_hours
+            contracts_with_close_time += 1
+
         contracts.append({
             'contract': contract.get('contractAddress', ''),
             'chain': contract.get('chain'),
@@ -1490,7 +1563,17 @@ def process_season_two_data(data: Dict) -> Dict:
             'users': contract.get('totalUsers', 0),
             'volume': contract.get('totalVolume', 0),
             'avg_per_user': contract.get('averageVolumePerUser', 0),
+            'net_profit': net_profit,
+            'avg_time_to_close': time_hours,
         })
+
+    # Aggregate net profit by asset from contracts
+    asset_profits = {}
+    for c in contracts:
+        asset = c['asset']
+        if asset not in asset_profits:
+            asset_profits[asset] = 0
+        asset_profits[asset] += c['net_profit']
 
     # Process assets
     assets = {}
@@ -1499,6 +1582,7 @@ def process_season_two_data(data: Dict) -> Dict:
             'users': asset_data.get('totalUsers', 0),
             'volume': asset_data.get('totalVolume', 0),
             'avg_per_user': asset_data.get('averageVolumePerUser', 0),
+            'net_profit': asset_profits.get(asset_name, 0),
         }
 
     # Process chains
@@ -1511,6 +1595,9 @@ def process_season_two_data(data: Dict) -> Dict:
             'avg_per_user': chain_data.get('averageVolumePerUser', 0),
         }
 
+    # Calculate average time to close
+    avg_time_to_close = total_time_to_close_hours / contracts_with_close_time if contracts_with_close_time > 0 else 0
+
     return {
         'by_contract': contracts,
         'by_asset': assets,
@@ -1519,6 +1606,9 @@ def process_season_two_data(data: Dict) -> Dict:
             'total_users': total.get('totalUsers', 0),
             'total_volume': total.get('totalVolume', 0),
             'avg_per_user': total.get('averageVolumePerUser', 0),
+            'net_profit': total_net_profit,
+            'avg_time_to_close_hours': avg_time_to_close,
+            'avg_time_to_close_formatted': format_hours_to_readable(avg_time_to_close),
         }
     }
 
