@@ -27,6 +27,8 @@ from data_fetcher import (
     get_alltime_pendle_markets_hyperscan as _get_alltime_pendle_markets,
     get_pendle_peak_tvls as _get_pendle_peak_tvls,
     get_hip3_volumes as _get_hip3_volumes,
+    get_testnet_analytics as _get_testnet_analytics,
+    get_season_comparison as _get_season_comparison,
     get_pendle_swaps,
     get_pendle_lp_events,
     clear_cache,
@@ -94,6 +96,14 @@ def get_pendle_peak_tvls(force_refresh=False):
 @st.cache_data(ttl=300, show_spinner=False)
 def get_hip3_volumes():
     return _get_hip3_volumes()
+
+@st.cache_data(ttl=300, show_spinner=False)
+def get_testnet_analytics():
+    return _get_testnet_analytics()
+
+@st.cache_data(ttl=300, show_spinner=False)
+def get_season_comparison():
+    return _get_season_comparison()
 
 # Page config
 st.set_page_config(
@@ -781,6 +791,140 @@ if alltime_pendle and len(alltime_pendle) > 1:
             st.metric("UNIQUE USERS", f"{stats['unique_users']:,}")
 else:
     st.info("Loading pool data...")
+
+# Section: Testnet Analytics
+st.markdown("---")
+st.markdown("""
+<div class="section-header">
+    <svg class="section-icon" width="18" height="18" viewBox="0 0 18 18"><rect x="0" y="0" width="18" height="18" rx="4" fill="none" stroke="#D9CDBB" stroke-width="1.5"/><path d="M4 12 L8 9 L11 11 L14 6" fill="none" stroke="#8A7B5B" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="14" cy="6" r="1.6" fill="#8A7B5B"/></svg>
+    <h2 style="margin: 0;">Testnet Analytics</h2>
+    <span class="section-subtitle">(MegaETH & Monad)</span>
+</div>
+""", unsafe_allow_html=True)
+
+testnet_data = get_testnet_analytics()
+
+if testnet_data:
+    # Overview totals
+    totals = testnet_data.get('totals', {})
+    simulator = testnet_data.get('simulator', {})
+    s1 = testnet_data.get('season_one', {})
+    s2 = testnet_data.get('season_two', {})
+
+    # Row 1: Grand totals
+    st.markdown("#### Overall Totals")
+    col_t1, col_t2, col_t3 = st.columns(3)
+    with col_t1:
+        st.metric("TOTAL TESTNET USERS", f"{totals.get('total_users', 0):,}")
+    with col_t2:
+        st.metric("TOTAL TESTNET VOLUME", f"${totals.get('total_volume', 0):,.2f}")
+    with col_t3:
+        avg_vol = totals.get('total_volume', 0) / totals.get('total_users', 1) if totals.get('total_users', 0) > 0 else 0
+        st.metric("AVG VOLUME / USER", f"${avg_vol:,.2f}")
+
+    st.markdown("")
+
+    # Simulator Stats
+    st.markdown("#### Simulator")
+    col_sim1, col_sim2, col_sim3 = st.columns(3)
+    with col_sim1:
+        st.metric("USERS", f"{simulator.get('total_users', 0):,}")
+    with col_sim2:
+        st.metric("VOLUME", f"${simulator.get('total_volume', 0):,.2f}")
+    with col_sim3:
+        st.metric("AVG / USER", f"${simulator.get('avg_volume_per_user', 0):,.2f}")
+
+    st.markdown("")
+
+    # Season One & Two side by side
+    col_s1, col_s2 = st.columns(2)
+
+    with col_s1:
+        st.markdown("#### Season One")
+        s1_total = s1.get('total', {})
+        st.metric("USERS", f"{s1_total.get('total_users', 0):,}")
+        st.metric("VOLUME", f"${s1_total.get('total_volume', 0):,.2f}")
+        st.metric("AVG / USER", f"${s1_total.get('avg_per_user', 0):,.2f}")
+
+        # By Chain
+        st.markdown("**By Chain:**")
+        s1_chains = s1.get('by_chain', {})
+        for chain_id, chain_data in s1_chains.items():
+            st.markdown(f"- **{chain_data['name']}**: {chain_data['users']:,} users, ${chain_data['volume']:,.2f} vol")
+
+        # By Asset (top 5)
+        st.markdown("**Top Assets:**")
+        s1_assets = s1.get('by_asset', {})
+        sorted_assets = sorted(s1_assets.items(), key=lambda x: x[1]['volume'], reverse=True)[:5]
+        for asset, data in sorted_assets:
+            st.markdown(f"- **{asset}**: {data['users']:,} users, ${data['volume']:,.2f} vol")
+
+    with col_s2:
+        st.markdown("#### Season Two")
+        s2_total = s2.get('total', {})
+        st.metric("USERS", f"{s2_total.get('total_users', 0):,}")
+        st.metric("VOLUME", f"${s2_total.get('total_volume', 0):,.2f}")
+        st.metric("AVG / USER", f"${s2_total.get('avg_per_user', 0):,.2f}")
+
+        # By Chain
+        st.markdown("**By Chain:**")
+        s2_chains = s2.get('by_chain', {})
+        for chain_id, chain_data in s2_chains.items():
+            st.markdown(f"- **{chain_data['name']}**: {chain_data['users']:,} users, ${chain_data['volume']:,.2f} vol")
+
+        # By Asset (top 5)
+        st.markdown("**Top Assets:**")
+        s2_assets = s2.get('by_asset', {})
+        sorted_assets = sorted(s2_assets.items(), key=lambda x: x[1]['volume'], reverse=True)[:5]
+        for asset, data in sorted_assets:
+            st.markdown(f"- **{asset}**: {data['users']:,} users, ${data['volume']:,.2f} vol")
+
+    # Season Comparison Table
+    st.markdown("")
+    st.markdown("#### Season Comparison")
+    comparison_data = get_season_comparison()
+
+    if comparison_data:
+        # Create a DataFrame for display
+        comparison_df = pd.DataFrame(comparison_data)
+        comparison_df = comparison_df[comparison_df['s1_volume'] + comparison_df['s2_volume'] > 0]  # Filter out zeros
+        comparison_df = comparison_df.sort_values('s2_volume', ascending=False)
+
+        # Format the DataFrame
+        display_df = comparison_df[['asset', 's1_users', 's1_volume', 's2_users', 's2_volume', 'user_growth', 'volume_growth']].copy()
+        display_df.columns = ['Asset', 'S1 Users', 'S1 Volume', 'S2 Users', 'S2 Volume', 'User Growth %', 'Vol Growth %']
+        display_df['S1 Volume'] = display_df['S1 Volume'].apply(lambda x: f"${x:,.0f}")
+        display_df['S2 Volume'] = display_df['S2 Volume'].apply(lambda x: f"${x:,.0f}")
+        display_df['User Growth %'] = display_df['User Growth %'].apply(lambda x: f"{x:+.1f}%" if x != 0 else "New")
+        display_df['Vol Growth %'] = display_df['Vol Growth %'].apply(lambda x: f"{x:+.1f}%" if x != 0 else "New")
+
+        st.dataframe(display_df, use_container_width=True, hide_index=True)
+
+    # Chain Comparison
+    st.markdown("")
+    st.markdown("#### Chain Comparison")
+    chain_col1, chain_col2 = st.columns(2)
+
+    with chain_col1:
+        st.markdown("**MegaETH (Chain 6342)**")
+        mega_s1 = s1.get('by_chain', {}).get(6342, {'users': 0, 'volume': 0})
+        mega_s2 = s2.get('by_chain', {}).get(6342, {'users': 0, 'volume': 0})
+        st.metric("S1 Users", f"{mega_s1.get('users', 0):,}")
+        st.metric("S1 Volume", f"${mega_s1.get('volume', 0):,.2f}")
+        st.metric("S2 Users", f"{mega_s2.get('users', 0):,}")
+        st.metric("S2 Volume", f"${mega_s2.get('volume', 0):,.2f}")
+
+    with chain_col2:
+        st.markdown("**Monad (Chain 10143)**")
+        monad_s1 = s1.get('by_chain', {}).get(10143, {'users': 0, 'volume': 0})
+        monad_s2 = s2.get('by_chain', {}).get(10143, {'users': 0, 'volume': 0})
+        st.metric("S1 Users", f"{monad_s1.get('users', 0):,}")
+        st.metric("S1 Volume", f"${monad_s1.get('volume', 0):,.2f}")
+        st.metric("S2 Users", f"{monad_s2.get('users', 0):,}")
+        st.metric("S2 Volume", f"${monad_s2.get('volume', 0):,.2f}")
+
+else:
+    st.info("Testnet analytics data unavailable")
 
 # Footer
 st.markdown("---")

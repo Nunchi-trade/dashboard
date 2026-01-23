@@ -1337,3 +1337,220 @@ def get_hip3_volumes() -> Dict:
 
     _cache[cache_key] = result
     return result
+
+
+# ============================================================================
+# TESTNET ANALYTICS API
+# ============================================================================
+
+TESTNET_ANALYTICS_API = "https://api-temp.nunchi.trade/api/v1/analytics"
+
+# Asset mapping for Season One (no asset field in API)
+SEASON_ONE_ASSET_MAP = {
+    "0xe83eE565057FA5e19e0796B3ED0c3f5218Dc810f": "BTC_FR",
+    "0x892D876376bD643e4D71CA4c4030aA4d9D61Ff9c": "ETH_FR",
+    "0x29944a5e8965A108a75027D4d8B84C1FE5a9AC58": "HYPE_FR",
+    "0x4B77aB49cF251bb1Ed0419118c632ba71Bc520e3": "SOL_FR",
+    "0x921e8b52f688e531287e28d72cB0bCA1c8f4f09B": "stETH_ETH",
+    "0x18951e3867Fb328eFA012AAfF5E1E1275d1E7256": "VXX",
+    "0x84e4F3A30FA4414A9A0212836C6d5ca2dFf9342d": "MSTY",
+    "0x37725df43f82CB25184Dfabe7530C9AB42307aA8": "XYZ100_FR",
+    "0xEef584DD7fff7a497F891E19C95d351c8b345Cc9": "VXX",
+    "0xF148Abde8fe45d0d753Dbb9e3eb69521Ea6F26E2": "MSTY",
+    "0x6e1c1275D49b4B09EAc99b0339004A4FDBd30cD8": "TBILL",
+    "0xb70eD964b5ea4fE718F9BA445ebCac98F73A3A67": "HYPE_FR",
+}
+
+CHAIN_NAMES = {
+    6342: "MegaETH",
+    10143: "Monad",
+}
+
+
+def get_testnet_analytics() -> Dict:
+    """
+    Fetch testnet analytics from Nunchi API.
+    Returns simulator, season one, and season two data.
+    """
+    cache_key = "testnet_analytics"
+
+    if cache_key in _cache:
+        return _cache[cache_key]
+
+    try:
+        resp = requests.get(TESTNET_ANALYTICS_API, timeout=30)
+        data = resp.json()
+
+        # Process the data
+        result = {
+            'simulator': process_simulator_data(data.get('simulator', {})),
+            'season_one': process_season_one_data(data.get('seasonOne', {})),
+            'season_two': process_season_two_data(data.get('seasonTwo', {})),
+            'timestamp': datetime.now().isoformat(),
+        }
+
+        # Calculate totals
+        result['totals'] = {
+            'total_users': (
+                result['simulator']['total_users'] +
+                result['season_one']['total']['total_users'] +
+                result['season_two']['total']['total_users']
+            ),
+            'total_volume': (
+                result['simulator']['total_volume'] +
+                result['season_one']['total']['total_volume'] +
+                result['season_two']['total']['total_volume']
+            ),
+        }
+
+        _cache[cache_key] = result
+        return result
+
+    except Exception as e:
+        print(f"Error fetching testnet analytics: {e}")
+        return {}
+
+
+def process_simulator_data(data: Dict) -> Dict:
+    """Process simulator data from API."""
+    return {
+        'total_users': data.get('totalUsers', 0),
+        'total_volume': data.get('totalVolume', 0) * 100,  # API returns in different scale
+        'avg_volume_per_user': data.get('averageVolumePerUser', 0),
+    }
+
+
+def process_season_one_data(data: Dict) -> Dict:
+    """Process Season One data with asset mapping."""
+    by_contract = data.get('byContract', [])
+    by_chain = data.get('byChain', {})
+    total = data.get('total', {})
+
+    # Map assets to contracts
+    contracts_with_assets = []
+    for contract in by_contract:
+        addr = contract.get('contractAddress', '')
+        asset = SEASON_ONE_ASSET_MAP.get(addr, 'Unknown')
+        contracts_with_assets.append({
+            'contract': addr,
+            'chain': contract.get('chain'),
+            'chain_name': CHAIN_NAMES.get(contract.get('chain'), 'Unknown'),
+            'asset': asset,
+            'users': contract.get('totalUsers', 0),
+            'volume': contract.get('totalVolume', 0),
+            'avg_per_user': contract.get('averageVolumePerUser', 0),
+        })
+
+    # Aggregate by asset
+    by_asset = {}
+    for c in contracts_with_assets:
+        asset = c['asset']
+        if asset not in by_asset:
+            by_asset[asset] = {'users': 0, 'volume': 0}
+        by_asset[asset]['users'] += c['users']
+        by_asset[asset]['volume'] += c['volume']
+
+    # Process by chain
+    chains = {}
+    for chain_id, chain_data in by_chain.items():
+        chains[int(chain_id)] = {
+            'name': CHAIN_NAMES.get(int(chain_id), 'Unknown'),
+            'users': chain_data.get('totalUsers', 0),
+            'volume': chain_data.get('totalVolume', 0),
+            'avg_per_user': chain_data.get('averageVolumePerUser', 0),
+        }
+
+    return {
+        'by_contract': contracts_with_assets,
+        'by_asset': by_asset,
+        'by_chain': chains,
+        'total': {
+            'total_users': total.get('totalUsers', 0),
+            'total_volume': total.get('totalVolume', 0),
+            'avg_per_user': total.get('averageVolumePerUser', 0),
+        }
+    }
+
+
+def process_season_two_data(data: Dict) -> Dict:
+    """Process Season Two data."""
+    by_contract = data.get('byContract', [])
+    by_asset = data.get('byAsset', {})
+    by_chain = data.get('byChain', {})
+    total = data.get('total', {})
+
+    # Process contracts
+    contracts = []
+    for contract in by_contract:
+        contracts.append({
+            'contract': contract.get('contractAddress', ''),
+            'chain': contract.get('chain'),
+            'chain_name': CHAIN_NAMES.get(contract.get('chain'), 'Unknown'),
+            'asset': contract.get('asset', 'Unknown'),
+            'users': contract.get('totalUsers', 0),
+            'volume': contract.get('totalVolume', 0),
+            'avg_per_user': contract.get('averageVolumePerUser', 0),
+        })
+
+    # Process assets
+    assets = {}
+    for asset_name, asset_data in by_asset.items():
+        assets[asset_name] = {
+            'users': asset_data.get('totalUsers', 0),
+            'volume': asset_data.get('totalVolume', 0),
+            'avg_per_user': asset_data.get('averageVolumePerUser', 0),
+        }
+
+    # Process chains
+    chains = {}
+    for chain_id, chain_data in by_chain.items():
+        chains[int(chain_id)] = {
+            'name': CHAIN_NAMES.get(int(chain_id), 'Unknown'),
+            'users': chain_data.get('totalUsers', 0),
+            'volume': chain_data.get('totalVolume', 0),
+            'avg_per_user': chain_data.get('averageVolumePerUser', 0),
+        }
+
+    return {
+        'by_contract': contracts,
+        'by_asset': assets,
+        'by_chain': chains,
+        'total': {
+            'total_users': total.get('totalUsers', 0),
+            'total_volume': total.get('totalVolume', 0),
+            'avg_per_user': total.get('averageVolumePerUser', 0),
+        }
+    }
+
+
+def get_season_comparison() -> Dict:
+    """Get comparison data between seasons."""
+    analytics = get_testnet_analytics()
+    if not analytics:
+        return {}
+
+    s1_assets = analytics.get('season_one', {}).get('by_asset', {})
+    s2_assets = analytics.get('season_two', {}).get('by_asset', {})
+
+    # Get all unique assets
+    all_assets = set(s1_assets.keys()) | set(s2_assets.keys())
+
+    comparison = []
+    for asset in sorted(all_assets):
+        s1 = s1_assets.get(asset, {'users': 0, 'volume': 0})
+        s2 = s2_assets.get(asset, {'users': 0, 'volume': 0})
+
+        user_growth = ((s2['users'] - s1['users']) / s1['users'] * 100) if s1['users'] > 0 else 0
+        vol_growth = ((s2['volume'] - s1['volume']) / s1['volume'] * 100) if s1['volume'] > 0 else 0
+
+        comparison.append({
+            'asset': asset,
+            's1_users': s1['users'],
+            's1_volume': s1['volume'],
+            's2_users': s2['users'],
+            's2_volume': s2['volume'],
+            'user_growth': user_growth,
+            'volume_growth': vol_growth,
+        })
+
+    return comparison
