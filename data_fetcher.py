@@ -1535,7 +1535,6 @@ def process_season_one_data(data: Dict) -> Dict:
 def process_season_two_data(data: Dict) -> Dict:
     """Process Season Two data."""
     by_contract = data.get('byContract', [])
-    by_asset = data.get('byAsset', {})
     by_chain = data.get('byChain', {})
     total = data.get('total', {})
 
@@ -1567,23 +1566,15 @@ def process_season_two_data(data: Dict) -> Dict:
             'avg_time_to_close': time_hours,
         })
 
-    # Aggregate net profit by asset from contracts
-    asset_profits = {}
+    # Aggregate by asset from contracts (API doesn't have byAsset for S2)
+    assets = {}
     for c in contracts:
         asset = c['asset']
-        if asset not in asset_profits:
-            asset_profits[asset] = 0
-        asset_profits[asset] += c['net_profit']
-
-    # Process assets
-    assets = {}
-    for asset_name, asset_data in by_asset.items():
-        assets[asset_name] = {
-            'users': asset_data.get('totalUsers', 0),
-            'volume': asset_data.get('totalVolume', 0),
-            'avg_per_user': asset_data.get('averageVolumePerUser', 0),
-            'net_profit': asset_profits.get(asset_name, 0),
-        }
+        if asset not in assets:
+            assets[asset] = {'users': 0, 'volume': 0, 'net_profit': 0}
+        assets[asset]['users'] += c['users']
+        assets[asset]['volume'] += c['volume']
+        assets[asset]['net_profit'] += c['net_profit']
 
     # Process chains
     chains = {}
