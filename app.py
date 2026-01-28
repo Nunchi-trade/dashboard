@@ -526,23 +526,22 @@ with tab1:
     st.markdown("## Overview")
     st.markdown('<p class="muted-text">Protocol-wide metrics across all Nunchi products.</p>', unsafe_allow_html=True)
 
-    # Hero metrics row
+    # Current TVL row
+    st.markdown("### Current TVL")
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
-        total_tvl = accurate_tvl['wNLP_tvl'] + (sum(info['tvl_usd'] for info in apy_data.values()) if apy_data else 0)
-        st.metric("TOTAL TVL", f"${total_tvl:,.0f}", help="nLP + Pendle markets")
+        st.metric("NLP TVL", f"${accurate_tvl['wNLP_tvl']:,.0f}", help="Stablecoin vault TVL")
 
     with col2:
-        st.metric("nHYPE STAKED", f"{accurate_tvl['nHYPE_tvl']:,.0f} HYPE", help="Total HYPE staked in nHYPE")
+        st.metric("nHYPE TVL", f"{accurate_tvl['nHYPE_tvl']:,.0f} HYPE", help="nHYPE vault TVL")
 
     with col3:
-        total_vol = hip3_volumes.get('total_notional', 0)
-        st.metric("HIP-3 VOLUME", f"${total_vol:,.0f}", help="All-time testnet volume")
+        st.metric("PENDLE SY TVL", f"{accurate_tvl['SY_tvl']:,.0f}", help="SY wrappers from nLP flows")
 
     with col4:
-        total_users = alltime_totals.get('total_unique_users', 0) if alltime_totals else 0
-        st.metric("TOTAL USERS", f"{total_users:,}", help="Unique wallets")
+        pendle_tvl_usd = sum(info['tvl_usd'] for info in apy_data.values()) if apy_data else 0
+        st.metric("PENDLE TVL (USD)", f"${pendle_tvl_usd:,.0f}", help="TVL in Pendle markets")
 
     st.markdown("---")
 
@@ -554,15 +553,40 @@ with tab1:
         wNLP = alltime_totals['wNLP']
         SY = alltime_totals['SY_wNLP']
 
-        col_a1, col_a2, col_a3, col_a4 = st.columns(4)
-        with col_a1:
-            st.metric("TOTAL DEPOSITS", f"${wNLP['deposits'] + SY['deposits']:,.0f}")
-        with col_a2:
-            st.metric("TOTAL WITHDRAWALS", f"${wNLP['withdrawals'] + SY['withdrawals']:,.0f}")
-        with col_a3:
-            st.metric("TOTAL VOLUME", f"${wNLP['volume'] + SY['volume']:,.0f}")
-        with col_a4:
-            st.metric("TOTAL TRANSACTIONS", f"{wNLP['transfer_count'] + SY['transfer_count']:,}")
+        # Row 1: Users
+        col_u1, col_u2, col_u3, col_u4 = st.columns(4)
+        with col_u1:
+            st.metric("TOTAL UNIQUE USERS", f"{alltime_totals.get('total_unique_users', 0):,}", help="Distinct wallets")
+        with col_u2:
+            st.metric("NLP USERS", f"{wNLP.get('unique_users', 0):,}", help="Vault depositors")
+        with col_u3:
+            st.metric("PENDLE USERS", f"{SY.get('unique_users', 0):,}", help="Users via Pendle")
+        with col_u4:
+            st.metric("TOTAL TRANSACTIONS", f"{wNLP['transfer_count'] + SY['transfer_count']:,}", help="All contracts")
+
+        # Row 2: nLP metrics
+        st.markdown("#### nLP Metrics")
+        col_n1, col_n2, col_n3, col_n4 = st.columns(4)
+        with col_n1:
+            st.metric("NLP DEPOSITS", f"${wNLP['deposits']:,.0f}")
+        with col_n2:
+            st.metric("NLP WITHDRAWALS", f"${wNLP['withdrawals']:,.0f}")
+        with col_n3:
+            st.metric("NLP VOLUME", f"${wNLP['volume']:,.0f}")
+        with col_n4:
+            st.metric("NLP TRANSFERS", f"{wNLP['transfer_count']:,}")
+
+        # Row 3: Pendle metrics
+        st.markdown("#### Pendle Metrics")
+        col_p1, col_p2, col_p3, col_p4 = st.columns(4)
+        with col_p1:
+            st.metric("PENDLE DEPOSITS", f"${SY['deposits']:,.0f}")
+        with col_p2:
+            st.metric("PENDLE WITHDRAWALS", f"${SY['withdrawals']:,.0f}")
+        with col_p3:
+            st.metric("PENDLE VOLUME", f"${SY['volume']:,.0f}")
+        with col_p4:
+            st.metric("PENDLE TRANSFERS", f"{SY['transfer_count']:,}")
 
 # ============== TAB 2: YIELD TOKENIZATION ==============
 with tab2:
@@ -627,6 +651,7 @@ with tab2:
                 st.metric("SWAP COUNT", f"{stats['swap_count']:,}")
                 st.metric("LP MINTS", f"{stats['mint_count']:,}")
                 st.metric("LP BURNS", f"{stats['burn_count']:,}")
+                st.metric("TOTAL EVENTS", f"{stats['total_events']:,}")
                 st.metric("UNIQUE USERS", f"{stats['unique_users']:,}")
 
 # ============== TAB 3: HIP-3 LIQUIDITY ==============
@@ -832,6 +857,12 @@ with tab5:
             for chain_id, chain_data in s1_chains.items():
                 st.markdown(f"- **{chain_data['name']}**: {chain_data['users']:,} users, ${chain_data['volume']:,.0f}")
 
+            st.markdown("**Top Assets:**")
+            s1_assets = s1.get('by_asset', {})
+            sorted_assets = sorted(s1_assets.items(), key=lambda x: x[1]['volume'], reverse=True)[:5]
+            for asset, data in sorted_assets:
+                st.markdown(f"- **{asset}**: {data['users']:,} users, ${data['volume']:,.0f}")
+
         with col_s2:
             st.markdown("### Season Two")
             s2_total = s2.get('total', {})
@@ -844,6 +875,12 @@ with tab5:
             s2_chains = s2.get('by_chain', {})
             for chain_id, chain_data in s2_chains.items():
                 st.markdown(f"- **{chain_data['name']}**: {chain_data['users']:,} users, ${chain_data['volume']:,.0f}")
+
+            st.markdown("**Top Assets:**")
+            s2_assets = s2.get('by_asset', {})
+            sorted_assets = sorted(s2_assets.items(), key=lambda x: x[1]['volume'], reverse=True)[:5]
+            for asset, data in sorted_assets:
+                st.markdown(f"- **{asset}**: {data['users']:,} users, ${data['volume']:,.0f}")
 
         st.markdown("---")
 
@@ -864,6 +901,31 @@ with tab5:
             display_df['Vol Growth %'] = display_df['Vol Growth %'].apply(lambda x: f"{x:+.1f}%" if x != 0 else "New")
 
             st.dataframe(display_df, use_container_width=True, hide_index=True)
+
+        st.markdown("---")
+
+        # Chain Comparison
+        st.markdown("### Chain Comparison")
+        chain_col1, chain_col2 = st.columns(2)
+
+        with chain_col1:
+            st.markdown("**MegaETH (Chain 6342)**")
+            mega_s1 = s1.get('by_chain', {}).get(6342, {'users': 0, 'volume': 0})
+            mega_s2 = s2.get('by_chain', {}).get(6342, {'users': 0, 'volume': 0})
+            st.metric("S1 Users", f"{mega_s1.get('users', 0):,}")
+            st.metric("S1 Volume", f"${mega_s1.get('volume', 0):,.0f}")
+            st.metric("S2 Users", f"{mega_s2.get('users', 0):,}")
+            st.metric("S2 Volume", f"${mega_s2.get('volume', 0):,.0f}")
+
+        with chain_col2:
+            st.markdown("**Monad (Chain 10143)**")
+            monad_s1 = s1.get('by_chain', {}).get(10143, {'users': 0, 'volume': 0})
+            monad_s2 = s2.get('by_chain', {}).get(10143, {'users': 0, 'volume': 0})
+            st.metric("S1 Users", f"{monad_s1.get('users', 0):,}")
+            st.metric("S1 Volume", f"${monad_s1.get('volume', 0):,.0f}")
+            st.metric("S2 Users", f"{monad_s2.get('users', 0):,}")
+            st.metric("S2 Volume", f"${monad_s2.get('volume', 0):,.0f}")
+
     else:
         st.info("Testnet analytics data unavailable")
 
