@@ -1,7 +1,7 @@
 """
 Nunchi Analytics Dashboard
 Real-time analytics for Nunchi (nunchi.trade) on HyperEVM
-Styled with Nunchi brand design
+Styled with Nunchi brand design - Tabbed layout
 """
 
 import streamlit as st
@@ -107,7 +107,7 @@ def get_season_comparison():
 
 # Page config
 st.set_page_config(
-    page_title="Nunchi Analytics",
+    page_title="Nunchi Stats",
     page_icon="",
     layout="wide",
     initial_sidebar_state="collapsed",
@@ -117,31 +117,31 @@ st.set_page_config(
 st.markdown("""
 <style>
     /* Import Inter font */
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
     /* CSS Variables - Nunchi Brand Tokens */
     :root {
         --bg: #F6F1EA;
-        --panel: #FBF8F3;
-        --ink: #111111;
-        --muted: #6F6A62;
-        --line: #D9CDBB;
-        --line2: #E7DED1;
-        --accent: #8A7B5B;
+        --panel: #FFFCF7;
+        --ink: #121317;
+        --muted: #6C6A63;
+        --line: #E2D8C7;
+        --line2: #EDE3D6;
+        --accent: #8A7650;
         --accent2: #B9A98A;
         --green: #2BB673;
     }
 
     /* Main app background */
     .stApp {
-        background-color: var(--bg) !important;
+        background: linear-gradient(180deg, #FBF8F2 0%, #F4EFE6 100%) !important;
     }
 
     .main .block-container {
-        background-color: var(--bg) !important;
-        padding-top: 2rem;
+        background: transparent !important;
+        padding-top: 0;
         padding-bottom: 2rem;
-        max-width: 1800px;
+        max-width: 1600px;
     }
 
     /* Hide Streamlit branding */
@@ -158,13 +158,14 @@ st.markdown("""
     }
 
     h1 {
-        font-size: 3.2rem !important;
-        margin-bottom: 0.5rem !important;
+        font-size: 2.2rem !important;
+        margin-bottom: 0.25rem !important;
     }
 
     h2, .stSubheader {
-        font-size: 1.6rem !important;
-        letter-spacing: -0.2px;
+        font-size: 1.1rem !important;
+        font-weight: 650 !important;
+        letter-spacing: 0.6px;
     }
 
     p, span, div, label {
@@ -175,36 +176,75 @@ st.markdown("""
     /* Muted text */
     .muted-text {
         color: var(--muted) !important;
-        font-size: 1rem;
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+
+    /* Top bar */
+    .top-bar {
+        background: var(--panel);
+        border-bottom: 1px solid var(--line);
+        padding: 18px 0;
+        margin: -1rem -1rem 1.5rem -1rem;
+    }
+
+    .top-bar-inner {
+        max-width: 1600px;
+        margin: 0 auto;
+        padding: 0 2rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .brand {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .brand-name {
+        font-family: Inter, sans-serif;
+        font-size: 16px;
+        font-weight: 800;
+        letter-spacing: 3px;
+        color: var(--ink);
+    }
+
+    .brand-sub {
+        font-family: Inter, sans-serif;
+        font-size: 14px;
+        font-weight: 650;
+        letter-spacing: 2px;
+        color: var(--accent);
     }
 
     /* Metric cards */
     [data-testid="stMetric"] {
         background: var(--panel) !important;
-        border: 1.5px solid var(--line) !important;
+        border: 1px solid var(--line) !important;
         border-radius: 18px !important;
         padding: 20px 22px !important;
-        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06) !important;
+        box-shadow: 0 10px 14px rgba(0, 0, 0, 0.08) !important;
     }
 
     [data-testid="stMetric"]:hover {
-        box-shadow: 0 12px 28px rgba(0, 0, 0, 0.08) !important;
-        border-color: var(--accent2) !important;
+        box-shadow: 0 12px 28px rgba(0, 0, 0, 0.1) !important;
     }
 
     [data-testid="stMetricLabel"] {
         font-family: Inter, ui-sans-serif, system-ui, sans-serif !important;
-        font-size: 13px !important;
-        font-weight: 500 !important;
-        letter-spacing: 0.3px !important;
+        font-size: 12px !important;
+        font-weight: 650 !important;
+        letter-spacing: 0.7px !important;
         text-transform: uppercase !important;
         color: var(--muted) !important;
     }
 
     [data-testid="stMetricValue"] {
-        font-family: Inter, ui-sans-serif, system-ui, sans-serif !important;
-        font-size: 1.8rem !important;
-        font-weight: 700 !important;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+        font-size: 1.5rem !important;
+        font-weight: 750 !important;
         color: var(--ink) !important;
     }
 
@@ -243,35 +283,33 @@ st.markdown("""
     /* Dividers */
     hr {
         border: none !important;
-        height: 2px !important;
-        background: linear-gradient(90deg,
-            rgba(217, 205, 187, 0) 0%,
-            rgba(217, 205, 187, 1) 15%,
-            rgba(217, 205, 187, 1) 85%,
-            rgba(217, 205, 187, 0) 100%) !important;
-        margin: 2rem 0 !important;
+        height: 1px !important;
+        background: var(--line) !important;
+        margin: 1.5rem 0 !important;
     }
 
-    /* Tabs */
+    /* Tabs - match design mockup */
     .stTabs [data-baseweb="tab-list"] {
         background-color: transparent !important;
-        gap: 8px;
+        gap: 24px;
+        border-bottom: none !important;
     }
 
     .stTabs [data-baseweb="tab"] {
-        background-color: var(--panel) !important;
-        border: 1.5px solid var(--line) !important;
-        border-radius: 18px !important;
+        background-color: transparent !important;
+        border: none !important;
+        border-radius: 0 !important;
         color: var(--muted) !important;
         font-family: Inter, sans-serif !important;
-        font-weight: 500 !important;
-        padding: 8px 20px !important;
+        font-weight: 600 !important;
+        font-size: 13px !important;
+        padding: 8px 0 !important;
     }
 
     .stTabs [data-baseweb="tab"][aria-selected="true"] {
-        background-color: var(--panel) !important;
-        border-color: var(--accent) !important;
+        background-color: transparent !important;
         color: var(--ink) !important;
+        font-weight: 700 !important;
     }
 
     .stTabs [data-baseweb="tab-highlight"] {
@@ -282,13 +320,117 @@ st.markdown("""
         display: none !important;
     }
 
-    /* Expanders */
-    .streamlit-expanderHeader {
-        background-color: var(--panel) !important;
-        border: 1px solid var(--line) !important;
-        border-radius: 12px !important;
-        color: var(--ink) !important;
-        font-family: Inter, sans-serif !important;
+    /* Card containers */
+    .card {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        padding: 24px;
+        box-shadow: 0 10px 14px rgba(0, 0, 0, 0.08);
+        margin-bottom: 1rem;
+    }
+
+    .card-header {
+        font-family: Inter, sans-serif;
+        font-size: 16px;
+        font-weight: 650;
+        color: var(--ink);
+        margin-bottom: 4px;
+    }
+
+    .card-subtitle {
+        font-family: Inter, sans-serif;
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--muted);
+        margin-bottom: 16px;
+    }
+
+    /* Data table styling */
+    .data-row {
+        background: #FFFEFB;
+        border: 1px solid var(--line2);
+        border-radius: 12px;
+        padding: 16px 20px;
+        margin-bottom: 8px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .data-label {
+        font-family: Inter, sans-serif;
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--muted);
+    }
+
+    .data-value {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--muted);
+    }
+
+    /* APY pills */
+    .apy-pill {
+        display: inline-flex;
+        align-items: center;
+        background: #FFFFFF;
+        border: 1px solid var(--line);
+        border-radius: 17px;
+        padding: 8px 16px;
+        margin-right: 12px;
+        margin-bottom: 12px;
+    }
+
+    .apy-pill-label {
+        font-family: Inter, sans-serif;
+        font-size: 12px;
+        font-weight: 650;
+        letter-spacing: 0.7px;
+        color: var(--muted);
+        margin-right: 12px;
+    }
+
+    .apy-pill-value {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--muted);
+    }
+
+    /* Pool status badges */
+    .pool-active {
+        color: #2BB673;
+        font-weight: 600;
+    }
+
+    .pool-expired {
+        color: #D9534F;
+        font-weight: 600;
+    }
+
+    /* Footer */
+    .footer {
+        text-align: center;
+        padding: 1.5rem 0;
+        border-top: 1px solid var(--line);
+        margin-top: 2rem;
+    }
+
+    .footer-text {
+        font-family: Inter, sans-serif;
+        font-size: 12px;
+        color: var(--muted);
+    }
+
+    .footer-link {
+        color: var(--accent) !important;
+        text-decoration: underline;
+        font-size: 12px;
+        font-family: Inter, sans-serif;
+        font-weight: 650;
     }
 
     /* DataFrames */
@@ -305,120 +447,10 @@ st.markdown("""
         color: var(--muted) !important;
     }
 
-    /* Spinner */
-    .stSpinner > div {
-        border-color: var(--accent) transparent transparent transparent !important;
-    }
-
-    /* Slider */
-    .stSlider [data-baseweb="slider"] {
-        background-color: var(--line) !important;
-    }
-
-    .stSlider [data-testid="stThumbValue"] {
-        color: var(--ink) !important;
-    }
-
     /* Caption text */
     .stCaption {
         color: var(--muted) !important;
         font-size: 12px !important;
-    }
-
-    /* Custom header styles */
-    .nunchi-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 1rem;
-    }
-
-    .nunchi-brand {
-        font-family: Inter, sans-serif;
-        font-size: 18px;
-        letter-spacing: 4px;
-        color: var(--ink);
-        font-weight: 600;
-    }
-
-    .nunchi-brand-sub {
-        font-family: Inter, sans-serif;
-        font-size: 14px;
-        letter-spacing: 2px;
-        color: var(--muted);
-        margin-left: 8px;
-    }
-
-    .live-pill {
-        display: inline-flex;
-        align-items: center;
-        background: var(--panel);
-        border: 1.2px solid var(--line);
-        border-radius: 18px;
-        padding: 8px 16px;
-        font-family: Inter, sans-serif;
-        font-size: 13px;
-        color: var(--ink);
-    }
-
-    .live-dot {
-        width: 10px;
-        height: 10px;
-        background: #2BB673;
-        border-radius: 50%;
-        margin-right: 8px;
-        animation: pulse 2s infinite;
-    }
-
-    @keyframes pulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.5; }
-    }
-
-    .section-header {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        margin-bottom: 1rem;
-    }
-
-    .section-icon {
-        width: 18px;
-        height: 18px;
-        border: 1.5px solid var(--line);
-        border-radius: 4px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .section-subtitle {
-        color: var(--muted);
-        font-size: 16px;
-        margin-left: 8px;
-    }
-
-    /* Pool status badges */
-    .pool-active {
-        color: #2BB673;
-        font-weight: 600;
-    }
-
-    .pool-expired {
-        color: #D9534F;
-        font-weight: 600;
-    }
-
-    /* Footer links */
-    .footer-link {
-        color: var(--accent) !important;
-        text-decoration: none;
-        font-size: 13px;
-        font-family: Inter, sans-serif;
-    }
-
-    .footer-link:hover {
-        text-decoration: underline;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -427,11 +459,11 @@ st.markdown("""
 PLOTLY_TEMPLATE = {
     'layout': {
         'paper_bgcolor': '#F6F1EA',
-        'plot_bgcolor': '#FBF8F3',
-        'font': {'family': 'Inter, sans-serif', 'color': '#111111'},
-        'xaxis': {'gridcolor': '#E7DED1', 'linecolor': '#D9CDBB'},
-        'yaxis': {'gridcolor': '#E7DED1', 'linecolor': '#D9CDBB'},
-        'colorway': ['#8A7B5B', '#B9A98A', '#2BB673', '#D9CDBB', '#6F6A62'],
+        'plot_bgcolor': '#FFFFFF',
+        'font': {'family': 'Inter, sans-serif', 'color': '#121317'},
+        'xaxis': {'gridcolor': '#EFE7DB', 'linecolor': '#E2D8C7'},
+        'yaxis': {'gridcolor': '#EFE7DB', 'linecolor': '#E2D8C7'},
+        'colorway': ['#121317', '#8A7650', '#2BB673', '#B9A98A', '#6C6A63'],
     }
 }
 
@@ -455,492 +487,397 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("**Contracts**")
     st.code(f"wNLP: {CONTRACTS['wNLP'][:10]}...", language=None)
-    st.code(f"SY: {CONTRACTS['SY_wNLP'][:10]}...", language=None)
+    st.code(f"nHYPE: {CONTRACTS['nHYPE'][:10]}...", language=None)
 
     st.markdown("---")
     st.markdown("**Links**")
     st.markdown("[Nunchi](https://nunchi.trade) | [Docs](https://docs.nunchi.trade)")
 
-# Custom header
+# Top bar header
 current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
 st.markdown(f"""
-<div class="nunchi-header">
-    <div>
-        <span class="nunchi-brand">NUNCHI</span>
-        <span class="nunchi-brand-sub">ANALYTICS</span>
-    </div>
-    <div style="display: flex; gap: 12px; align-items: center;">
-        <div class="live-pill">
-            <div class="live-dot"></div>
-            Live
-        </div>
-        <div class="live-pill">
-            <span style="color: var(--muted); margin-right: 8px;">Last updated</span>
-            {current_time}
+<div class="top-bar">
+    <div class="top-bar-inner">
+        <div class="brand">
+            <span class="brand-name">NUNCHI</span>
+            <span class="brand-sub">STATS</span>
         </div>
     </div>
 </div>
 """, unsafe_allow_html=True)
 
-# Main title
-st.title("Nunchi Analytics Dashboard")
-st.markdown('<p class="muted-text">Real-time protocol stats for nLP, Pendle integrations, and on-chain activity.</p>', unsafe_allow_html=True)
-
-# Load data
+# Load all data
 apy_data = get_pendle_apy()
 accurate_tvl = get_accurate_tvl()
 
-with st.spinner("Loading all-time totals..."):
+with st.spinner("Loading data..."):
     alltime_totals = get_alltime_totals_hyperscan()
     alltime_pendle = get_alltime_pendle_markets()
     pendle_peak_tvls = get_pendle_peak_tvls()
-
-with st.spinner(f"Loading {days} day(s) of recent data..."):
     kpis = get_kpi_summary(days)
+    hip3_volumes = get_hip3_volumes()
+    testnet_data = get_testnet_analytics()
 
-# Section: Current TVL
-st.markdown("---")
-st.markdown("""
-<div class="section-header">
-    <svg class="section-icon" width="18" height="18" viewBox="0 0 18 18"><rect x="0" y="0" width="18" height="18" rx="4" fill="none" stroke="#D9CDBB" stroke-width="1.5"/><path d="M4 12 L8 9 L11 11 L14 6" fill="none" stroke="#8A7B5B" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="14" cy="6" r="1.6" fill="#8A7B5B"/></svg>
-    <h2 style="margin: 0;">Current TVL</h2>
-    <span class="section-subtitle">(Live from blockchain)</span>
-</div>
-""", unsafe_allow_html=True)
+# Main tabs - matching design mockup
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["Overview", "Yield Tokenization", "HIP-3 Liquidity", "HIP-3 Staking", "Testnet (Proxy)"])
 
-col1, col2, col3, col4 = st.columns(4)
+# ============== TAB 1: OVERVIEW ==============
+with tab1:
+    st.markdown("## Overview")
+    st.markdown('<p class="muted-text">Protocol-wide metrics across all Nunchi products.</p>', unsafe_allow_html=True)
 
-with col1:
-    st.metric(
-        label="NLP TVL",
-        value=f"${accurate_tvl['wNLP_tvl']:,.2f}",
-        help="Stablecoin vault TVL"
-    )
+    # Hero metrics row
+    col1, col2, col3, col4 = st.columns(4)
 
-with col2:
-    st.metric(
-        label="nHYPE TVL",
-        value=f"{accurate_tvl['nHYPE_tvl']:,.2f} HYPE",
-        help="nHYPE vault TVL"
-    )
+    with col1:
+        total_tvl = accurate_tvl['wNLP_tvl'] + (sum(info['tvl_usd'] for info in apy_data.values()) if apy_data else 0)
+        st.metric("TOTAL TVL", f"${total_tvl:,.0f}", help="nLP + Pendle markets")
 
-with col3:
-    st.metric(
-        label="PENDLE SY TVL",
-        value=f"{accurate_tvl['SY_tvl']:,.2f}",
-        help="SY wrappers from nLP flows"
-    )
+    with col2:
+        st.metric("nHYPE STAKED", f"{accurate_tvl['nHYPE_tvl']:,.0f} HYPE", help="Total HYPE staked in nHYPE")
 
-with col4:
-    pendle_tvl_usd = sum(info['tvl_usd'] for info in apy_data.values()) if apy_data else 0
-    st.metric(
-        label="PENDLE TVL (USD)",
-        value=f"${pendle_tvl_usd:,.2f}",
-        help="TVL in Pendle markets"
-    )
+    with col3:
+        total_vol = hip3_volumes.get('total_notional', 0)
+        st.metric("HIP-3 VOLUME", f"${total_vol:,.0f}", help="All-time testnet volume")
 
-# Section: Volume Traded
-st.markdown("---")
-st.markdown("""
-<div class="section-header">
-    <svg class="section-icon" width="18" height="18" viewBox="0 0 18 18"><rect x="0" y="0" width="18" height="18" rx="4" fill="none" stroke="#D9CDBB" stroke-width="1.5"/><path d="M4 12 L8 9 L11 11 L14 6" fill="none" stroke="#8A7B5B" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="14" cy="6" r="1.6" fill="#8A7B5B"/></svg>
-    <h2 style="margin: 0;">Volume Traded</h2>
-    <span class="section-subtitle">(Hyperliquid testnet with mockUSDC)</span>
-</div>
-""", unsafe_allow_html=True)
+    with col4:
+        total_users = alltime_totals.get('total_unique_users', 0) if alltime_totals else 0
+        st.metric("TOTAL USERS", f"{total_users:,}", help="Unique wallets")
 
-hip3_volumes = get_hip3_volumes()
+    st.markdown("---")
 
-vol_col1, vol_col2, vol_col3 = st.columns(3)
+    # All-time totals
+    st.markdown("### All-Time Totals")
+    st.markdown('<p class="muted-text">Since contract deployment on HyperEVM.</p>', unsafe_allow_html=True)
 
-with vol_col1:
-    vxx_vol = hip3_volumes.get('nunchi:VXX', {}).get('notional_volume', 0)
-    st.metric(
-        label="VXX VOLUME",
-        value=f"${vxx_vol:,.2f}",
-        help="All-time notional volume for nunchi:VXX"
-    )
+    if alltime_totals and 'wNLP' in alltime_totals:
+        wNLP = alltime_totals['wNLP']
+        SY = alltime_totals['SY_wNLP']
 
-with vol_col2:
-    us3m_vol = hip3_volumes.get('nunchi:US3M', {}).get('notional_volume', 0)
-    st.metric(
-        label="US3M VOLUME",
-        value=f"${us3m_vol:,.2f}",
-        help="All-time notional volume for nunchi:US3M"
-    )
+        col_a1, col_a2, col_a3, col_a4 = st.columns(4)
+        with col_a1:
+            st.metric("TOTAL DEPOSITS", f"${wNLP['deposits'] + SY['deposits']:,.0f}")
+        with col_a2:
+            st.metric("TOTAL WITHDRAWALS", f"${wNLP['withdrawals'] + SY['withdrawals']:,.0f}")
+        with col_a3:
+            st.metric("TOTAL VOLUME", f"${wNLP['volume'] + SY['volume']:,.0f}")
+        with col_a4:
+            st.metric("TOTAL TRANSACTIONS", f"{wNLP['transfer_count'] + SY['transfer_count']:,}")
 
-with vol_col3:
-    total_vol = hip3_volumes.get('total_notional', 0)
-    st.metric(
-        label="TOTAL VOLUME",
-        value=f"${total_vol:,.2f}",
-        help="Combined all-time volume across both pairs"
-    )
+# ============== TAB 2: YIELD TOKENIZATION ==============
+with tab2:
+    st.markdown("## Yield Tokenization")
+    st.markdown('<p class="muted-text">Pendle integration: yield tokenization (YT/PT/LP) for nLP.</p>', unsafe_allow_html=True)
 
-# Section: All-Time Totals
-st.markdown("---")
-st.markdown("""
-<div class="section-header">
-    <svg class="section-icon" width="18" height="18" viewBox="0 0 18 18"><rect x="0" y="0" width="18" height="18" rx="4" fill="none" stroke="#D9CDBB" stroke-width="1.5"/><path d="M4 12 L8 9 L11 11 L14 6" fill="none" stroke="#8A7B5B" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="14" cy="6" r="1.6" fill="#8A7B5B"/></svg>
-    <h2 style="margin: 0;">All-Time Totals</h2>
-    <span class="section-subtitle">(Since contract deployment)</span>
-</div>
-""", unsafe_allow_html=True)
+    # APY metrics
+    if apy_data:
+        total_tvl = sum(info['tvl_usd'] for info in apy_data.values())
+        total_daily_yield = sum(info['daily_yield'] for info in apy_data.values())
 
-if alltime_totals and 'wNLP' in alltime_totals:
-    wNLP = alltime_totals['wNLP']
-    SY = alltime_totals['SY_wNLP']
+        if total_tvl > 0:
+            avg_underlying_apy = sum(info['underlying_apy'] * info['tvl_usd'] for info in apy_data.values()) / total_tvl
+            avg_implied_apy = sum(info['implied_apy'] * info['tvl_usd'] for info in apy_data.values()) / total_tvl
+        else:
+            avg_underlying_apy = 0
+            avg_implied_apy = 0
 
-    # Row 1: Users
-    col_u1, col_u2, col_u3, col_u4 = st.columns(4)
-    with col_u1:
-        st.metric(
-            label="TOTAL UNIQUE USERS",
-            value=f"{alltime_totals.get('total_unique_users', 0):,}",
-            help="Distinct wallets interacted"
-        )
-    with col_u2:
-        st.metric(
-            label="NLP USERS",
-            value=f"{wNLP.get('unique_users', 0):,}",
-            help="Vault depositors / holders"
-        )
-    with col_u3:
-        st.metric(
-            label="PENDLE USERS",
-            value=f"{SY.get('unique_users', 0):,}",
-            help="Users via Pendle routes"
-        )
-    with col_u4:
-        st.metric(
-            label="TOTAL TRANSACTIONS",
-            value=f"{wNLP['transfer_count'] + SY['transfer_count']:,}",
-            help="All contracts aggregated"
-        )
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("PENDLE TVL", f"${total_tvl:,.0f}")
+        with col2:
+            st.metric("UNDERLYING APY", f"{avg_underlying_apy:.1f}%")
+        with col3:
+            st.metric("IMPLIED APY", f"{avg_implied_apy:.1f}%")
+        with col4:
+            st.metric("DAILY YIELD", f"${total_daily_yield:,.2f}")
 
-    # Row 2: nLP metrics
-    col_n1, col_n2, col_n3, col_n4 = st.columns(4)
-    with col_n1:
-        st.metric(
-            label="NLP DEPOSITS",
-            value=f"${wNLP['deposits']:,.2f}",
-            help="Cumulative deposits"
-        )
-    with col_n2:
-        st.metric(
-            label="NLP WITHDRAWALS",
-            value=f"${wNLP['withdrawals']:,.2f}",
-            help="Cumulative withdrawals"
-        )
-    with col_n3:
-        st.metric(
-            label="NLP VOLUME",
-            value=f"${wNLP['volume']:,.2f}",
-            help="Transfers + internal flows"
-        )
-    with col_n4:
-        st.metric(
-            label="NLP TRANSFERS",
-            value=f"{wNLP['transfer_count']:,}",
-            help="Token movements"
-        )
+    st.markdown("---")
 
-    # Row 3: Pendle metrics
-    col_p1, col_p2, col_p3, col_p4 = st.columns(4)
-    with col_p1:
-        st.metric(
-            label="PENDLE DEPOSITS",
-            value=f"${SY['deposits']:,.2f}",
-            help="Deposits into Pendle markets"
-        )
-    with col_p2:
-        st.metric(
-            label="PENDLE WITHDRAWALS",
-            value=f"${SY['withdrawals']:,.2f}",
-            help="Withdrawals from Pendle"
-        )
-    with col_p3:
-        st.metric(
-            label="PENDLE VOLUME",
-            value=f"${SY['volume']:,.2f}",
-            help="SY/PT/YT related volume"
-        )
-    with col_p4:
-        st.metric(
-            label="PENDLE TRANSFERS",
-            value=f"{SY['transfer_count']:,}",
-            help="Pendle token movements"
-        )
+    # Pendle Pools breakdown
+    st.markdown("### Pendle Pools")
 
-    if 'timestamp' in alltime_totals:
-        st.caption(f"Last updated: {alltime_totals['timestamp']}")
-else:
-    st.info("All-time data loading... Click 'Refresh All-Time Totals' in sidebar.")
+    if alltime_pendle and len(alltime_pendle) > 1:
+        pool_names = [k for k in alltime_pendle.keys() if k != 'timestamp']
+        pool_cols = st.columns(len(pool_names))
 
-# Section: APY & Yield
-st.markdown("---")
-st.markdown("""
-<div class="section-header">
-    <svg class="section-icon" width="18" height="18" viewBox="0 0 18 18"><rect x="0" y="0" width="18" height="18" rx="4" fill="none" stroke="#D9CDBB" stroke-width="1.5"/><path d="M4 12 L8 9 L11 11 L14 6" fill="none" stroke="#8A7B5B" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="14" cy="6" r="1.6" fill="#8A7B5B"/></svg>
-    <h2 style="margin: 0;">APY & Distributed Yield</h2>
-</div>
-""", unsafe_allow_html=True)
+        for idx, market_name in enumerate(pool_names):
+            stats = alltime_pendle[market_name]
+            with pool_cols[idx]:
+                is_expired = "Dec 2025" in market_name
+                status_class = "pool-expired" if is_expired else "pool-active"
+                status_text = "Expired" if is_expired else "Active"
 
-if apy_data:
-    total_tvl = sum(info['tvl_usd'] for info in apy_data.values())
-    total_daily_yield = sum(info['daily_yield'] for info in apy_data.values())
-    total_annual_yield = sum(info['annual_yield'] for info in apy_data.values())
+                st.markdown(f"""
+                <div style="margin-bottom: 8px;">
+                    <strong style="font-size: 1.1rem;">{market_name}</strong>
+                    <span class="{status_class}" style="margin-left: 8px;">{status_text}</span>
+                </div>
+                <div style="color: var(--muted); font-size: 13px; margin-bottom: 12px;">Expiry: {stats['expiry']}</div>
+                """, unsafe_allow_html=True)
 
-    if total_tvl > 0:
-        avg_underlying_apy = sum(info['underlying_apy'] * info['tvl_usd'] for info in apy_data.values()) / total_tvl
-        avg_implied_apy = sum(info['implied_apy'] * info['tvl_usd'] for info in apy_data.values()) / total_tvl
-    else:
-        avg_underlying_apy = 0
-        avg_implied_apy = 0
+                if is_expired:
+                    peak_tvl_data = pendle_peak_tvls.get(market_name, {}) if pendle_peak_tvls else {}
+                    peak_tvl = peak_tvl_data.get('peak_tvl', 0) * 2
+                    st.metric("ALL TIME TVL", f"${peak_tvl:,.0f}")
+                else:
+                    market_addr = stats.get('market_address', '').lower()
+                    current_tvl = apy_data.get(market_addr, {}).get('tvl_usd', 0) if apy_data else 0
+                    st.metric("TVL", f"${current_tvl:,.0f}")
 
-    col_y1, col_y2, col_y3, col_y4 = st.columns(4)
-    with col_y1:
-        st.metric("UNDERLYING APY", f"{avg_underlying_apy:.1f}%", help="TVL-weighted average yield")
-    with col_y2:
-        st.metric("IMPLIED APY", f"{avg_implied_apy:.1f}%", help="PT discount rate")
-    with col_y3:
-        st.metric("DAILY YIELD", f"${total_daily_yield:,.2f}")
-    with col_y4:
-        st.metric("ANNUAL YIELD", f"${total_annual_yield:,.2f}")
+                st.metric("SWAP COUNT", f"{stats['swap_count']:,}")
+                st.metric("LP MINTS", f"{stats['mint_count']:,}")
+                st.metric("LP BURNS", f"{stats['burn_count']:,}")
+                st.metric("UNIQUE USERS", f"{stats['unique_users']:,}")
 
-    # APY Chart
-    apy_history = get_apy_history(days)
-    if not apy_history.empty:
-        fig_apy = go.Figure()
+# ============== TAB 3: HIP-3 LIQUIDITY ==============
+with tab3:
+    st.markdown("## HIP-3 Liquidity")
+    st.markdown('<p class="muted-text">nLP vault: stablecoin capital that underwrites market quality and feeds the system loop.</p>', unsafe_allow_html=True)
 
-        for market in apy_history['market'].unique():
-            market_data = apy_history[apy_history['market'] == market]
-            fig_apy.add_trace(go.Scatter(
-                x=market_data['timestamp'],
-                y=market_data['underlying_apy'],
-                mode='lines',
-                name=f'{market} - Underlying',
-                line=dict(width=2, color='#8A7B5B'),
-            ))
-            fig_apy.add_trace(go.Scatter(
-                x=market_data['timestamp'],
-                y=market_data['implied_apy'],
-                mode='lines',
-                name=f'{market} - Implied',
-                line=dict(width=2, dash='dash', color='#B9A98A'),
-            ))
+    # Hero cards
+    col1, col2, col3, col4 = st.columns(4)
 
-        fig_apy.update_layout(
-            paper_bgcolor='#F6F1EA',
-            plot_bgcolor='#FBF8F3',
-            font=dict(family='Inter, sans-serif', color='#111111'),
-            xaxis=dict(gridcolor='#E7DED1', linecolor='#D9CDBB', title='Date'),
-            yaxis=dict(gridcolor='#E7DED1', linecolor='#D9CDBB', title='APY (%)'),
-            height=350,
-            margin=dict(l=40, r=40, t=40, b=40),
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        )
-        st.plotly_chart(fig_apy, use_container_width=True)
-else:
-    st.info("APY data unavailable")
+    with col1:
+        st.metric("TVL (LIVE)", f"${accurate_tvl['wNLP_tvl']:,.0f}", help="USDC + USDT deposits")
 
-# Section: Pendle Pools
-st.markdown("---")
-st.markdown("""
-<div class="section-header">
-    <svg class="section-icon" width="18" height="18" viewBox="0 0 18 18"><rect x="0" y="0" width="18" height="18" rx="4" fill="none" stroke="#D9CDBB" stroke-width="1.5"/><path d="M4 12 L8 9 L11 11 L14 6" fill="none" stroke="#8A7B5B" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="14" cy="6" r="1.6" fill="#8A7B5B"/></svg>
-    <h2 style="margin: 0;">Pendle Pools Breakdown</h2>
-    <span class="section-subtitle">(All-time stats)</span>
-</div>
-""", unsafe_allow_html=True)
+    with col2:
+        # Current APY from Pendle
+        if apy_data:
+            total_tvl = sum(info['tvl_usd'] for info in apy_data.values())
+            if total_tvl > 0:
+                avg_apy = sum(info['underlying_apy'] * info['tvl_usd'] for info in apy_data.values()) / total_tvl
+            else:
+                avg_apy = 0
+            st.metric("CURRENT APY (EST.)", f"{avg_apy:.1f}%", help="Base + rewards")
+        else:
+            st.metric("CURRENT APY (EST.)", "N/A")
 
-if alltime_pendle and len(alltime_pendle) > 1:
-    pool_names = [k for k in alltime_pendle.keys() if k != 'timestamp']
-    pool_cols = st.columns(len(pool_names))
+    with col3:
+        if apy_data:
+            daily_yield = sum(info['daily_yield'] for info in apy_data.values())
+            st.metric("DAILY DISTRIBUTED", f"${daily_yield:,.2f}", help="7D average")
+        else:
+            st.metric("DAILY DISTRIBUTED", "$0")
 
-    for idx, market_name in enumerate(pool_names):
-        stats = alltime_pendle[market_name]
-        with pool_cols[idx]:
-            is_expired = "Dec 2025" in market_name
-            status_class = "pool-expired" if is_expired else "pool-active"
-            status_text = "Expired" if is_expired else "Active"
+    with col4:
+        if apy_data:
+            annual_yield = sum(info['annual_yield'] for info in apy_data.values())
+            st.metric("TOTAL DISTRIBUTED", f"${annual_yield:,.0f}", help="All-time estimated")
+        else:
+            st.metric("TOTAL DISTRIBUTED", "$0")
+
+    st.markdown("---")
+
+    # Two column layout: Yield Profile + Vault Accounting
+    col_left, col_right = st.columns([2, 1])
+
+    with col_left:
+        st.markdown("### Yield Profile")
+        st.markdown('<p class="muted-text">APY breakdown and trend.</p>', unsafe_allow_html=True)
+
+        # APY pills
+        if apy_data:
+            total_tvl = sum(info['tvl_usd'] for info in apy_data.values())
+            if total_tvl > 0:
+                base_apy = sum(info['underlying_apy'] * info['tvl_usd'] for info in apy_data.values()) / total_tvl
+                implied_apy = sum(info['implied_apy'] * info['tvl_usd'] for info in apy_data.values()) / total_tvl
+            else:
+                base_apy = 0
+                implied_apy = 0
 
             st.markdown(f"""
-            <div style="margin-bottom: 8px;">
-                <strong style="font-size: 1.1rem;">{market_name}</strong>
-                <span class="{status_class}" style="margin-left: 8px;">{status_text}</span>
+            <div style="margin-bottom: 16px;">
+                <span class="apy-pill"><span class="apy-pill-label">BASE</span><span class="apy-pill-value">{base_apy:.1f}%</span></span>
+                <span class="apy-pill"><span class="apy-pill-label">IMPLIED</span><span class="apy-pill-value">{implied_apy:.1f}%</span></span>
+                <span class="apy-pill" style="background: rgba(18,19,23,0.06);"><span class="apy-pill-label">TOTAL (EST.)</span><span class="apy-pill-value">{base_apy:.1f}%</span></span>
             </div>
-            <div style="color: var(--muted); font-size: 13px; margin-bottom: 12px;">Expiry: {stats['expiry']}</div>
             """, unsafe_allow_html=True)
 
-            # For expired pool: show all-time peak TVL (×2 for LP value)
-            # For active pool: show current TVL from Pendle API
-            if is_expired:
-                peak_tvl_data = pendle_peak_tvls.get(market_name, {}) if pendle_peak_tvls else {}
-                peak_tvl = peak_tvl_data.get('peak_tvl', 0) * 2  # Multiply by 2 for LP value
-                st.metric("ALL TIME TVL", f"${peak_tvl:,.2f}")
-            else:
-                market_addr = stats.get('market_address', '').lower()
-                current_tvl = apy_data.get(market_addr, {}).get('tvl_usd', 0) if apy_data else 0
-                st.metric("TVL", f"${current_tvl:,.2f}")
+        # APY Chart
+        apy_history = get_apy_history(days)
+        if not apy_history.empty:
+            fig_apy = go.Figure()
 
-            st.metric("SWAP COUNT", f"{stats['swap_count']:,}")
-            st.metric("LP MINTS", f"{stats['mint_count']:,}")
-            st.metric("LP BURNS", f"{stats['burn_count']:,}")
-            st.metric("TOTAL EVENTS", f"{stats['total_events']:,}")
-            st.metric("UNIQUE USERS", f"{stats['unique_users']:,}")
-else:
-    st.info("Loading pool data...")
+            for market in apy_history['market'].unique():
+                market_data = apy_history[apy_history['market'] == market]
+                fig_apy.add_trace(go.Scatter(
+                    x=market_data['timestamp'],
+                    y=market_data['underlying_apy'],
+                    mode='lines',
+                    name=f'Underlying',
+                    line=dict(width=3, color='#121317'),
+                ))
+                fig_apy.add_trace(go.Scatter(
+                    x=market_data['timestamp'],
+                    y=market_data['implied_apy'],
+                    mode='lines',
+                    name=f'Implied',
+                    line=dict(width=2, color='#8A7650'),
+                ))
 
-# Section: Testnet Analytics
-st.markdown("---")
-st.markdown("""
-<div class="section-header">
-    <svg class="section-icon" width="18" height="18" viewBox="0 0 18 18"><rect x="0" y="0" width="18" height="18" rx="4" fill="none" stroke="#D9CDBB" stroke-width="1.5"/><path d="M4 12 L8 9 L11 11 L14 6" fill="none" stroke="#8A7B5B" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="14" cy="6" r="1.6" fill="#8A7B5B"/></svg>
-    <h2 style="margin: 0;">Testnet Analytics</h2>
-    <span class="section-subtitle">(MegaETH & Monad)</span>
-</div>
-""", unsafe_allow_html=True)
+            fig_apy.update_layout(
+                paper_bgcolor='#FFFFFF',
+                plot_bgcolor='#FFFFFF',
+                font=dict(family='Inter, sans-serif', color='#121317'),
+                xaxis=dict(gridcolor='#EFE7DB', linecolor='#E2D8C7', title=''),
+                yaxis=dict(gridcolor='#EFE7DB', linecolor='#E2D8C7', title='APY (%)'),
+                height=280,
+                margin=dict(l=40, r=20, t=20, b=40),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                showlegend=True,
+            )
+            st.plotly_chart(fig_apy, use_container_width=True)
 
-testnet_data = get_testnet_analytics()
+    with col_right:
+        st.markdown("### Vault Accounting")
+        st.markdown('<p class="muted-text">All-time event accounting.</p>', unsafe_allow_html=True)
 
-if testnet_data:
-    # Overview totals
-    totals = testnet_data.get('totals', {})
-    simulator = testnet_data.get('simulator', {})
-    s1 = testnet_data.get('season_one', {})
-    s2 = testnet_data.get('season_two', {})
+        if alltime_totals and 'wNLP' in alltime_totals:
+            wNLP = alltime_totals['wNLP']
 
-    # Row 1: Grand totals
-    st.markdown("#### Overall Totals")
-    col_t1, col_t2, col_t3 = st.columns(3)
-    with col_t1:
-        st.metric("TOTAL TESTNET USERS", f"{totals.get('total_users', 0):,}")
-    with col_t2:
-        st.metric("TOTAL TESTNET VOLUME", f"${totals.get('total_volume', 0):,.2f}")
-    with col_t3:
-        avg_vol = totals.get('total_volume', 0) / totals.get('total_users', 1) if totals.get('total_users', 0) > 0 else 0
-        st.metric("AVG VOLUME / USER", f"${avg_vol:,.2f}")
+            st.markdown(f"""
+            <div class="data-row"><span class="data-label">Deposits</span><span class="data-value">${wNLP['deposits']:,.0f}</span></div>
+            <div class="data-row"><span class="data-label">Withdrawals</span><span class="data-value">${wNLP['withdrawals']:,.0f}</span></div>
+            <div class="data-row"><span class="data-label">Net deposits</span><span class="data-value">${wNLP['deposits'] - wNLP['withdrawals']:,.0f}</span></div>
+            <div class="data-row"><span class="data-label">Transfers</span><span class="data-value">{wNLP['transfer_count']:,}</span></div>
+            <div class="data-row"><span class="data-label">Unique users</span><span class="data-value">{wNLP['unique_users']:,}</span></div>
+            """, unsafe_allow_html=True)
 
-    st.markdown("")
+# ============== TAB 4: HIP-3 STAKING ==============
+with tab4:
+    st.markdown("## HIP-3 Staking")
+    st.markdown('<p class="muted-text">nHYPE: liquid staking token for HYPE supporting the HIP-3 bond.</p>', unsafe_allow_html=True)
 
-    # Simulator Stats
-    st.markdown("#### Simulator")
-    col_sim1, col_sim2, col_sim3 = st.columns(3)
-    with col_sim1:
-        st.metric("USERS", f"{simulator.get('total_users', 0):,}")
-    with col_sim2:
-        st.metric("VOLUME", f"${simulator.get('total_volume', 0):,.2f}")
-    with col_sim3:
-        st.metric("AVG / USER", f"${simulator.get('avg_volume_per_user', 0):,.2f}")
+    # Hero cards
+    col1, col2, col3 = st.columns(3)
 
-    st.markdown("")
+    with col1:
+        st.metric("nHYPE TVL", f"{accurate_tvl['nHYPE_tvl']:,.0f} HYPE", help="Total HYPE staked")
 
-    # Season One & Two side by side
-    col_s1, col_s2 = st.columns(2)
+    with col2:
+        st.metric("nHYPE CONTRACT", CONTRACTS['nHYPE'][:18] + "...", help="nHYPE token address")
 
-    with col_s1:
-        st.markdown("#### Season One")
-        s1_total = s1.get('total', {})
-        st.metric("USERS", f"{s1_total.get('total_users', 0):,}")
-        st.metric("VOLUME", f"${s1_total.get('total_volume', 0):,.2f}")
-        st.metric("NET PROFIT", f"${s1_total.get('net_profit', 0):,.2f}")
-        st.metric("AVG TIME TO CLOSE", s1_total.get('avg_time_to_close_formatted', 'N/A'))
+    with col3:
+        # Placeholder for staking vault when available
+        st.metric("STATUS", "Active", help="Staking is live")
 
-        # By Chain
-        st.markdown("**By Chain:**")
-        s1_chains = s1.get('by_chain', {})
-        for chain_id, chain_data in s1_chains.items():
-            st.markdown(f"- **{chain_data['name']}**: {chain_data['users']:,} users, ${chain_data['volume']:,.2f} vol")
+    st.markdown("---")
 
-        # By Asset (top 5)
-        st.markdown("**Top Assets:**")
-        s1_assets = s1.get('by_asset', {})
-        sorted_assets = sorted(s1_assets.items(), key=lambda x: x[1]['volume'], reverse=True)[:5]
-        for asset, data in sorted_assets:
-            st.markdown(f"- **{asset}**: {data['users']:,} users, ${data['volume']:,.2f} vol")
+    # Volume traded section
+    st.markdown("### HIP-3 Volume Traded")
+    st.markdown('<p class="muted-text">Hyperliquid testnet with mockUSDC.</p>', unsafe_allow_html=True)
 
-    with col_s2:
-        st.markdown("#### Season Two")
-        s2_total = s2.get('total', {})
-        st.metric("USERS", f"{s2_total.get('total_users', 0):,}")
-        st.metric("VOLUME", f"${s2_total.get('total_volume', 0):,.2f}")
-        st.metric("NET PROFIT", f"${s2_total.get('net_profit', 0):,.2f}")
-        st.metric("AVG TIME TO CLOSE", s2_total.get('avg_time_to_close_formatted', 'N/A'))
+    vol_col1, vol_col2, vol_col3 = st.columns(3)
 
-        # By Chain
-        st.markdown("**By Chain:**")
-        s2_chains = s2.get('by_chain', {})
-        for chain_id, chain_data in s2_chains.items():
-            st.markdown(f"- **{chain_data['name']}**: {chain_data['users']:,} users, ${chain_data['volume']:,.2f} vol")
+    with vol_col1:
+        vxx_vol = hip3_volumes.get('nunchi:VXX', {}).get('notional_volume', 0)
+        st.metric("VXX VOLUME", f"${vxx_vol:,.0f}")
 
-        # By Asset (top 5)
-        st.markdown("**Top Assets:**")
-        s2_assets = s2.get('by_asset', {})
-        sorted_assets = sorted(s2_assets.items(), key=lambda x: x[1]['volume'], reverse=True)[:5]
-        for asset, data in sorted_assets:
-            st.markdown(f"- **{asset}**: {data['users']:,} users, ${data['volume']:,.2f} vol")
+    with vol_col2:
+        us3m_vol = hip3_volumes.get('nunchi:US3M', {}).get('notional_volume', 0)
+        st.metric("US3M VOLUME", f"${us3m_vol:,.0f}")
 
-    # Season Comparison Table
-    st.markdown("")
-    st.markdown("#### Season Comparison")
-    comparison_data = get_season_comparison()
+    with vol_col3:
+        total_vol = hip3_volumes.get('total_notional', 0)
+        st.metric("TOTAL VOLUME", f"${total_vol:,.0f}")
 
-    if comparison_data:
-        # Create a DataFrame for display
-        comparison_df = pd.DataFrame(comparison_data)
-        comparison_df = comparison_df[comparison_df['s1_volume'] + comparison_df['s2_volume'] > 0]  # Filter out zeros
-        comparison_df = comparison_df.sort_values('s2_volume', ascending=False)
+# ============== TAB 5: TESTNET (PROXY) ==============
+with tab5:
+    st.markdown("## Testnet Analytics")
+    st.markdown('<p class="muted-text">MegaETH & Monad testnet activity.</p>', unsafe_allow_html=True)
 
-        # Format the DataFrame
-        display_df = comparison_df[['asset', 's1_users', 's1_volume', 's2_users', 's2_volume', 'user_growth', 'volume_growth']].copy()
-        display_df.columns = ['Asset', 'S1 Users', 'S1 Volume', 'S2 Users', 'S2 Volume', 'User Growth %', 'Vol Growth %']
-        display_df['S1 Volume'] = display_df['S1 Volume'].apply(lambda x: f"${x:,.0f}")
-        display_df['S2 Volume'] = display_df['S2 Volume'].apply(lambda x: f"${x:,.0f}")
-        display_df['User Growth %'] = display_df['User Growth %'].apply(lambda x: f"{x:+.1f}%" if x != 0 else "New")
-        display_df['Vol Growth %'] = display_df['Vol Growth %'].apply(lambda x: f"{x:+.1f}%" if x != 0 else "New")
+    if testnet_data:
+        totals = testnet_data.get('totals', {})
+        simulator = testnet_data.get('simulator', {})
+        s1 = testnet_data.get('season_one', {})
+        s2 = testnet_data.get('season_two', {})
 
-        st.dataframe(display_df, use_container_width=True, hide_index=True)
+        # Hero metrics
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("TOTAL USERS", f"{totals.get('total_users', 0):,}")
+        with col2:
+            st.metric("TOTAL VOLUME", f"${totals.get('total_volume', 0):,.0f}")
+        with col3:
+            avg_vol = totals.get('total_volume', 0) / totals.get('total_users', 1) if totals.get('total_users', 0) > 0 else 0
+            st.metric("AVG / USER", f"${avg_vol:,.0f}")
 
-    # Chain Comparison
-    st.markdown("")
-    st.markdown("#### Chain Comparison")
-    chain_col1, chain_col2 = st.columns(2)
+        st.markdown("---")
 
-    with chain_col1:
-        st.markdown("**MegaETH (Chain 6342)**")
-        mega_s1 = s1.get('by_chain', {}).get(6342, {'users': 0, 'volume': 0})
-        mega_s2 = s2.get('by_chain', {}).get(6342, {'users': 0, 'volume': 0})
-        st.metric("S1 Users", f"{mega_s1.get('users', 0):,}")
-        st.metric("S1 Volume", f"${mega_s1.get('volume', 0):,.2f}")
-        st.metric("S2 Users", f"{mega_s2.get('users', 0):,}")
-        st.metric("S2 Volume", f"${mega_s2.get('volume', 0):,.2f}")
+        # Simulator
+        st.markdown("### Simulator")
+        col_sim1, col_sim2, col_sim3 = st.columns(3)
+        with col_sim1:
+            st.metric("USERS", f"{simulator.get('total_users', 0):,}")
+        with col_sim2:
+            st.metric("VOLUME", f"${simulator.get('total_volume', 0):,.0f}")
+        with col_sim3:
+            st.metric("AVG / USER", f"${simulator.get('avg_volume_per_user', 0):,.0f}")
 
-    with chain_col2:
-        st.markdown("**Monad (Chain 10143)**")
-        monad_s1 = s1.get('by_chain', {}).get(10143, {'users': 0, 'volume': 0})
-        monad_s2 = s2.get('by_chain', {}).get(10143, {'users': 0, 'volume': 0})
-        st.metric("S1 Users", f"{monad_s1.get('users', 0):,}")
-        st.metric("S1 Volume", f"${monad_s1.get('volume', 0):,.2f}")
-        st.metric("S2 Users", f"{monad_s2.get('users', 0):,}")
-        st.metric("S2 Volume", f"${monad_s2.get('volume', 0):,.2f}")
+        st.markdown("---")
 
-else:
-    st.info("Testnet analytics data unavailable")
+        # Season One & Two side by side
+        col_s1, col_s2 = st.columns(2)
+
+        with col_s1:
+            st.markdown("### Season One")
+            s1_total = s1.get('total', {})
+            st.metric("USERS", f"{s1_total.get('total_users', 0):,}")
+            st.metric("VOLUME", f"${s1_total.get('total_volume', 0):,.0f}")
+            st.metric("NET PROFIT", f"${s1_total.get('net_profit', 0):,.0f}")
+            st.metric("AVG TIME TO CLOSE", s1_total.get('avg_time_to_close_formatted', 'N/A'))
+
+            st.markdown("**By Chain:**")
+            s1_chains = s1.get('by_chain', {})
+            for chain_id, chain_data in s1_chains.items():
+                st.markdown(f"- **{chain_data['name']}**: {chain_data['users']:,} users, ${chain_data['volume']:,.0f}")
+
+        with col_s2:
+            st.markdown("### Season Two")
+            s2_total = s2.get('total', {})
+            st.metric("USERS", f"{s2_total.get('total_users', 0):,}")
+            st.metric("VOLUME", f"${s2_total.get('total_volume', 0):,.0f}")
+            st.metric("NET PROFIT", f"${s2_total.get('net_profit', 0):,.0f}")
+            st.metric("AVG TIME TO CLOSE", s2_total.get('avg_time_to_close_formatted', 'N/A'))
+
+            st.markdown("**By Chain:**")
+            s2_chains = s2.get('by_chain', {})
+            for chain_id, chain_data in s2_chains.items():
+                st.markdown(f"- **{chain_data['name']}**: {chain_data['users']:,} users, ${chain_data['volume']:,.0f}")
+
+        st.markdown("---")
+
+        # Season Comparison Table
+        st.markdown("### Season Comparison")
+        comparison_data = get_season_comparison()
+
+        if comparison_data:
+            comparison_df = pd.DataFrame(comparison_data)
+            comparison_df = comparison_df[comparison_df['s1_volume'] + comparison_df['s2_volume'] > 0]
+            comparison_df = comparison_df.sort_values('s2_volume', ascending=False)
+
+            display_df = comparison_df[['asset', 's1_users', 's1_volume', 's2_users', 's2_volume', 'user_growth', 'volume_growth']].copy()
+            display_df.columns = ['Asset', 'S1 Users', 'S1 Volume', 'S2 Users', 'S2 Volume', 'User Growth %', 'Vol Growth %']
+            display_df['S1 Volume'] = display_df['S1 Volume'].apply(lambda x: f"${x:,.0f}")
+            display_df['S2 Volume'] = display_df['S2 Volume'].apply(lambda x: f"${x:,.0f}")
+            display_df['User Growth %'] = display_df['User Growth %'].apply(lambda x: f"{x:+.1f}%" if x != 0 else "New")
+            display_df['Vol Growth %'] = display_df['Vol Growth %'].apply(lambda x: f"{x:+.1f}%" if x != 0 else "New")
+
+            st.dataframe(display_df, use_container_width=True, hide_index=True)
+    else:
+        st.info("Testnet analytics data unavailable")
 
 # Footer
-st.markdown("---")
 st.markdown(f"""
-<div style="text-align: center; padding: 1rem 0;">
-    <p style="color: var(--muted); font-size: 12px; margin-bottom: 12px;">
+<div class="footer">
+    <p class="footer-text">
+        Last updated: <span style="font-family: monospace;">{current_time}</span> ·
         Metrics sourced from on-chain events and vault accounting.
     </p>
-    <div style="display: flex; justify-content: center; gap: 16px;">
+    <div style="margin-top: 12px;">
         <a href="https://nunchi.trade" target="_blank" class="footer-link">Open app</a>
-        <span style="color: var(--muted);">•</span>
+        <span style="color: var(--muted); margin: 0 8px;">·</span>
         <a href="https://docs.nunchi.trade" target="_blank" class="footer-link">Documentation</a>
-        <span style="color: var(--muted);">•</span>
-        <a href="https://hyperscan.com" target="_blank" class="footer-link">HyperScan</a>
     </div>
 </div>
 """, unsafe_allow_html=True)
