@@ -193,7 +193,7 @@ st.markdown("""
         margin: 0 auto;
         padding: 0 2rem;
         display: flex;
-        justify-content: space-between;
+        justify-content: flex-start;
         align-items: center;
     }
 
