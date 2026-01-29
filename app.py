@@ -553,16 +553,34 @@ with tab1:
         wNLP = alltime_totals['wNLP']
         SY = alltime_totals['SY_wNLP']
 
+        # Calculate user counts
+        nlp_depositors = wNLP.get('unique_users', 0)
+
+        # Get Pendle users across both pools
+        pendle_users_total = 0
+        if alltime_pendle:
+            for market_name, stats in alltime_pendle.items():
+                if market_name != 'timestamp':
+                    pendle_users_total += stats.get('unique_users', 0)
+
+        # Get testnet + simulator users
+        testnet_users = 0
+        if testnet_data:
+            testnet_users = testnet_data.get('totals', {}).get('total_users', 0)
+
+        # Total unique users = NLP + Pendle + Testnet/Simulator
+        total_unique = nlp_depositors + pendle_users_total + testnet_users
+
         # Row 1: Users
         col_u1, col_u2, col_u3, col_u4 = st.columns(4)
         with col_u1:
-            st.metric("TOTAL UNIQUE USERS", f"{alltime_totals.get('total_unique_users', 0):,}", help="Distinct wallets")
+            st.metric("TOTAL UNIQUE USERS", f"{total_unique:,}", help="NLP + Pendle + Testnet users")
         with col_u2:
-            st.metric("NLP USERS", f"{wNLP.get('unique_users', 0):,}", help="Vault depositors")
+            st.metric("NLP DEPOSITORS", f"{nlp_depositors:,}", help="Vault depositors")
         with col_u3:
-            st.metric("PENDLE USERS", f"{SY.get('unique_users', 0):,}", help="Users via Pendle")
+            st.metric("PENDLE USERS", f"{pendle_users_total:,}", help="Users across both pools")
         with col_u4:
-            st.metric("TOTAL TRANSACTIONS", f"{wNLP['transfer_count'] + SY['transfer_count']:,}", help="All contracts")
+            st.metric("TESTNET USERS", f"{testnet_users:,}", help="Simulator + S1 + S2 users")
 
         # Row 2: nLP metrics
         st.markdown("#### nLP Metrics")
