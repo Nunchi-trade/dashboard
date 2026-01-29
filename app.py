@@ -506,17 +506,52 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# Load all data
-apy_data = get_pendle_apy()
-accurate_tvl = get_accurate_tvl()
+# Load all data with error handling
+try:
+    apy_data = get_pendle_apy()
+except Exception as e:
+    st.warning(f"Failed to load Pendle APY: {e}")
+    apy_data = {}
+
+try:
+    accurate_tvl = get_accurate_tvl()
+except Exception as e:
+    st.warning(f"Failed to load TVL: {e}")
+    accurate_tvl = {'wNLP_tvl': 0, 'SY_tvl': 0, 'nHYPE_tvl': 0}
 
 with st.spinner("Loading data..."):
-    alltime_totals = get_alltime_totals_hyperscan()
-    alltime_pendle = get_alltime_pendle_markets()
-    pendle_peak_tvls = get_pendle_peak_tvls()
-    kpis = get_kpi_summary(days)
-    hip3_volumes = get_hip3_volumes()
-    testnet_data = get_testnet_analytics()
+    try:
+        alltime_totals = get_alltime_totals_hyperscan()
+    except Exception as e:
+        st.warning(f"Failed to load all-time totals: {e}")
+        alltime_totals = {}
+
+    try:
+        alltime_pendle = get_alltime_pendle_markets()
+    except Exception as e:
+        st.warning(f"Failed to load Pendle markets: {e}")
+        alltime_pendle = {}
+
+    try:
+        pendle_peak_tvls = get_pendle_peak_tvls()
+    except Exception as e:
+        pendle_peak_tvls = {}
+
+    try:
+        kpis = get_kpi_summary(days)
+    except Exception as e:
+        kpis = {}
+
+    try:
+        hip3_volumes = get_hip3_volumes()
+    except Exception as e:
+        hip3_volumes = {}
+
+    try:
+        testnet_data = get_testnet_analytics()
+    except Exception as e:
+        st.warning(f"Failed to load testnet data: {e}")
+        testnet_data = {}
 
 # Main tabs - matching design mockup
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["Overview", "Yield Tokenization", "HIP-3 Liquidity", "HIP-3 Staking", "Testnet (Proxy)"])
