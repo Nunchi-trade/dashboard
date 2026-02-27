@@ -27,6 +27,7 @@ from data_fetcher import (
     get_alltime_pendle_markets_hyperscan as _get_alltime_pendle_markets,
     get_pendle_peak_tvls as _get_pendle_peak_tvls,
     get_hip3_volumes as _get_hip3_volumes,
+    get_yex_volumes as _get_yex_volumes,
     get_testnet_analytics as _get_testnet_analytics,
     get_season_comparison as _get_season_comparison,
     get_pendle_swaps,
@@ -92,6 +93,10 @@ def get_alltime_pendle_markets(force_refresh=False):
 @st.cache_data(ttl=3600, show_spinner=False)
 def get_pendle_peak_tvls(force_refresh=False):
     return _get_pendle_peak_tvls(force_refresh)
+
+@st.cache_data(ttl=300, show_spinner=False)
+def get_yex_volumes():
+    return _get_yex_volumes()
 
 @st.cache_data(ttl=300, show_spinner=False)
 def get_hip3_volumes():
@@ -548,6 +553,11 @@ with st.spinner("Loading data..."):
         hip3_volumes = {}
 
     try:
+        yex_volumes = get_yex_volumes()
+    except Exception as e:
+        yex_volumes = {}
+
+    try:
         testnet_data = get_testnet_analytics()
     except Exception as e:
         st.warning(f"Failed to load testnet data: {e}")
@@ -841,7 +851,31 @@ with tab4:
 
     st.markdown("---")
 
-    # Volume traded section
+    # YEX Volume traded section
+    st.markdown("### YEX Volume Traded")
+    st.markdown('<p class="muted-text">Hyperliquid testnet with USDyp.</p>', unsafe_allow_html=True)
+
+    yex_col1, yex_col2, yex_col3, yex_col4 = st.columns(4)
+
+    with yex_col1:
+        yex_us3m_vol = yex_volumes.get('yex:US3M', {}).get('notional_volume', 0)
+        st.metric("US3M VOLUME", f"${yex_us3m_vol:,.0f}")
+
+    with yex_col2:
+        yex_vxx_vol = yex_volumes.get('yex:VXX', {}).get('notional_volume', 0)
+        st.metric("VXX VOLUME", f"${yex_vxx_vol:,.0f}")
+
+    with yex_col3:
+        yex_btcswp_vol = yex_volumes.get('yex:BTCSWP', {}).get('notional_volume', 0)
+        st.metric("BTCSWP VOLUME", f"${yex_btcswp_vol:,.0f}")
+
+    with yex_col4:
+        yex_total_vol = yex_volumes.get('total_notional', 0)
+        st.metric("TOTAL VOLUME", f"${yex_total_vol:,.0f}")
+
+    st.markdown("---")
+
+    # HIP-3 Volume traded section
     st.markdown("### HIP-3 Volume Traded")
     st.markdown('<p class="muted-text">Hyperliquid testnet with mockUSDC.</p>', unsafe_allow_html=True)
 

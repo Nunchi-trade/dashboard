@@ -1270,6 +1270,8 @@ HYPERLIQUID_TESTNET_API = "https://api.hyperliquid-testnet.xyz/info"
 
 HIP3_PAIRS = ["nunchi:VXX", "nunchi:US3M"]
 
+YEX_PAIRS = ["yex:US3M", "yex:VXX", "yex:BTCSWP"]
+
 
 def fetch_hip3_volume(coin: str) -> Dict:
     """
@@ -1328,6 +1330,30 @@ def get_hip3_volumes() -> Dict:
     total_notional = 0
 
     for pair in HIP3_PAIRS:
+        vol_data = fetch_hip3_volume(pair)
+        result[pair] = vol_data
+        total_notional += vol_data['notional_volume']
+
+    result['total_notional'] = round(total_notional, 2)
+    result['timestamp'] = datetime.now().isoformat()
+
+    _cache[cache_key] = result
+    return result
+
+
+def get_yex_volumes() -> Dict:
+    """
+    Get all-time volume data for YEX pairs on Hyperliquid testnet (USDyp).
+    """
+    cache_key = "yex_volumes"
+
+    if cache_key in _cache:
+        return _cache[cache_key]
+
+    result = {}
+    total_notional = 0
+
+    for pair in YEX_PAIRS:
         vol_data = fetch_hip3_volume(pair)
         result[pair] = vol_data
         total_notional += vol_data['notional_volume']
