@@ -27,6 +27,7 @@ from data_fetcher import (
     get_alltime_pendle_markets_hyperscan as _get_alltime_pendle_markets,
     get_pendle_peak_tvls as _get_pendle_peak_tvls,
     get_hip3_volumes as _get_hip3_volumes,
+    get_yex_volumes as _get_yex_volumes,
     get_testnet_analytics as _get_testnet_analytics,
     get_season_comparison as _get_season_comparison,
     get_pendle_swaps,
@@ -92,6 +93,10 @@ def get_alltime_pendle_markets(force_refresh=False):
 @st.cache_data(ttl=3600, show_spinner=False)
 def get_pendle_peak_tvls(force_refresh=False):
     return _get_pendle_peak_tvls(force_refresh)
+
+@st.cache_data(ttl=300, show_spinner=False)
+def get_yex_volumes():
+    return _get_yex_volumes()
 
 @st.cache_data(ttl=300, show_spinner=False)
 def get_hip3_volumes():
@@ -539,12 +544,58 @@ with col4:
         help="TVL in Pendle markets"
     )
 
-# Section: Volume Traded
+# Section: YEX Volume Traded
 st.markdown("---")
 st.markdown("""
 <div class="section-header">
     <svg class="section-icon" width="18" height="18" viewBox="0 0 18 18"><rect x="0" y="0" width="18" height="18" rx="4" fill="none" stroke="#D9CDBB" stroke-width="1.5"/><path d="M4 12 L8 9 L11 11 L14 6" fill="none" stroke="#8A7B5B" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="14" cy="6" r="1.6" fill="#8A7B5B"/></svg>
-    <h2 style="margin: 0;">Volume Traded</h2>
+    <h2 style="margin: 0;">YEX Volume Traded</h2>
+    <span class="section-subtitle">(Hyperliquid testnet with USDyp)</span>
+</div>
+""", unsafe_allow_html=True)
+
+yex_volumes = get_yex_volumes()
+
+yex_col1, yex_col2, yex_col3, yex_col4 = st.columns(4)
+
+with yex_col1:
+    yex_us3m_vol = yex_volumes.get('YEX:US3M', {}).get('notional_volume', 0)
+    st.metric(
+        label="US3M VOLUME",
+        value=f"${yex_us3m_vol:,.2f}",
+        help="All-time notional volume for YEX:US3M"
+    )
+
+with yex_col2:
+    yex_vxx_vol = yex_volumes.get('YEX:VXX', {}).get('notional_volume', 0)
+    st.metric(
+        label="VXX VOLUME",
+        value=f"${yex_vxx_vol:,.2f}",
+        help="All-time notional volume for YEX:VXX"
+    )
+
+with yex_col3:
+    yex_btcswp_vol = yex_volumes.get('YEX:BTCSWP', {}).get('notional_volume', 0)
+    st.metric(
+        label="BTCSWP VOLUME",
+        value=f"${yex_btcswp_vol:,.2f}",
+        help="All-time notional volume for YEX:BTCSWP"
+    )
+
+with yex_col4:
+    yex_total_vol = yex_volumes.get('total_notional', 0)
+    st.metric(
+        label="TOTAL VOLUME",
+        value=f"${yex_total_vol:,.2f}",
+        help="Combined all-time YEX volume"
+    )
+
+# Section: HIP-3 Volume Traded
+st.markdown("---")
+st.markdown("""
+<div class="section-header">
+    <svg class="section-icon" width="18" height="18" viewBox="0 0 18 18"><rect x="0" y="0" width="18" height="18" rx="4" fill="none" stroke="#D9CDBB" stroke-width="1.5"/><path d="M4 12 L8 9 L11 11 L14 6" fill="none" stroke="#8A7B5B" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="14" cy="6" r="1.6" fill="#8A7B5B"/></svg>
+    <h2 style="margin: 0;">HIP-3 Volume Traded</h2>
     <span class="section-subtitle">(Hyperliquid testnet with mockUSDC)</span>
 </div>
 """, unsafe_allow_html=True)
