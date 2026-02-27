@@ -1270,7 +1270,7 @@ HYPERLIQUID_TESTNET_API = "https://api.hyperliquid-testnet.xyz/info"
 
 HIP3_PAIRS = ["nunchi:VXX", "nunchi:US3M"]
 
-YEX_PAIRS = ["YEX:US3M", "YEX:VXX", "YEX:BTCSWP"]
+YEX_PAIRS = ["yex:US3M", "yex:VXX", "yex:BTCSWP"]
 
 
 def fetch_hip3_volume(coin: str) -> Dict:

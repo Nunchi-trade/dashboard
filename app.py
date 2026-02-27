@@ -559,27 +559,27 @@ yex_volumes = get_yex_volumes()
 yex_col1, yex_col2, yex_col3, yex_col4 = st.columns(4)
 
 with yex_col1:
-    yex_us3m_vol = yex_volumes.get('YEX:US3M', {}).get('notional_volume', 0)
+    yex_us3m_vol = yex_volumes.get('yex:US3M', {}).get('notional_volume', 0)
     st.metric(
         label="US3M VOLUME",
         value=f"${yex_us3m_vol:,.2f}",
-        help="All-time notional volume for YEX:US3M"
+        help="All-time notional volume for yex:US3M"
     )
 
 with yex_col2:
-    yex_vxx_vol = yex_volumes.get('YEX:VXX', {}).get('notional_volume', 0)
+    yex_vxx_vol = yex_volumes.get('yex:VXX', {}).get('notional_volume', 0)
     st.metric(
         label="VXX VOLUME",
         value=f"${yex_vxx_vol:,.2f}",
-        help="All-time notional volume for YEX:VXX"
+        help="All-time notional volume for yex:VXX"
     )
 
 with yex_col3:
-    yex_btcswp_vol = yex_volumes.get('YEX:BTCSWP', {}).get('notional_volume', 0)
+    yex_btcswp_vol = yex_volumes.get('yex:BTCSWP', {}).get('notional_volume', 0)
     st.metric(
         label="BTCSWP VOLUME",
         value=f"${yex_btcswp_vol:,.2f}",
-        help="All-time notional volume for YEX:BTCSWP"
+        help="All-time notional volume for yex:BTCSWP"
     )
 
 with yex_col4:
