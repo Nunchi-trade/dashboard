@@ -1,86 +1,40 @@
 """
-Nunchi Analytics Dashboard
-Real-time analytics for Nunchi (nunchi.trade) on HyperEVM
-Styled with Nunchi brand design - Tabbed layout
+Nunchi House Stats Page
+Institutional view of house liquidity, player activity, agent flow, and competition results.
+Redesigned to match Figma spec (node-id=21:900).
 """
 
 import streamlit as st
-import plotly.express as px
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 import pandas as pd
 from datetime import datetime, timedelta
+import os
 
 from data_fetcher import (
     get_kpi_summary as _get_kpi_summary,
-    get_daily_pendle_deposits as _get_daily_pendle_deposits,
-    get_daily_volume as _get_daily_volume,
-    get_nlp_tvl as _get_nlp_tvl,
-    get_daily_nlp_volume as _get_daily_nlp_volume,
-    get_top_holders as _get_top_holders,
-    get_user_stats as _get_user_stats,
-    get_market_stats as _get_market_stats,
     get_pendle_apy as _get_pendle_apy,
-    get_apy_history as _get_apy_history,
     get_accurate_tvl as _get_accurate_tvl,
     get_alltime_totals_hyperscan as _get_alltime_totals_hyperscan,
     get_alltime_pendle_markets_hyperscan as _get_alltime_pendle_markets,
-    get_pendle_peak_tvls as _get_pendle_peak_tvls,
     get_hip3_volumes as _get_hip3_volumes,
-    get_yex_volumes as _get_yex_volumes,
     get_testnet_analytics as _get_testnet_analytics,
     get_season_comparison as _get_season_comparison,
-    get_pendle_swaps,
-    get_pendle_lp_events,
+    fetch_hip3_volume,
     clear_cache,
     save_alltime_cache,
 )
-from config import CONTRACTS, PENDLE_MARKETS
 
-# Streamlit cached wrappers for faster reloads
-@st.cache_data(ttl=300, show_spinner=False)
-def get_kpi_summary(days):
-    return _get_kpi_summary(days)
-
-@st.cache_data(ttl=300, show_spinner=False)
-def get_daily_pendle_deposits(days):
-    return _get_daily_pendle_deposits(days)
-
-@st.cache_data(ttl=300, show_spinner=False)
-def get_daily_volume(days):
-    return _get_daily_volume(days)
-
-@st.cache_data(ttl=300, show_spinner=False)
-def get_nlp_tvl(days):
-    return _get_nlp_tvl(days)
-
-@st.cache_data(ttl=300, show_spinner=False)
-def get_daily_nlp_volume(days):
-    return _get_daily_nlp_volume(days)
-
-@st.cache_data(ttl=300, show_spinner=False)
-def get_top_holders(days):
-    return _get_top_holders(days)
-
-@st.cache_data(ttl=300, show_spinner=False)
-def get_user_stats(days):
-    return _get_user_stats(days)
-
-@st.cache_data(ttl=300, show_spinner=False)
-def get_market_stats(days):
-    return _get_market_stats(days)
-
-@st.cache_data(ttl=300, show_spinner=False)
-def get_pendle_apy():
-    return _get_pendle_apy()
-
-@st.cache_data(ttl=300, show_spinner=False)
-def get_apy_history(days):
-    return _get_apy_history(days)
+# ---------------------------------------------------------------------------
+# Streamlit cached wrappers
+# ---------------------------------------------------------------------------
 
 @st.cache_data(ttl=60, show_spinner=False)
 def get_accurate_tvl():
     return _get_accurate_tvl()
+
+@st.cache_data(ttl=300, show_spinner=False)
+def get_pendle_apy():
+    return _get_pendle_apy()
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def get_alltime_totals_hyperscan(force_refresh=False):
@@ -90,17 +44,22 @@ def get_alltime_totals_hyperscan(force_refresh=False):
 def get_alltime_pendle_markets(force_refresh=False):
     return _get_alltime_pendle_markets(force_refresh)
 
-@st.cache_data(ttl=3600, show_spinner=False)
-def get_pendle_peak_tvls(force_refresh=False):
-    return _get_pendle_peak_tvls(force_refresh)
-
-@st.cache_data(ttl=300, show_spinner=False)
-def get_yex_volumes():
-    return _get_yex_volumes()
-
 @st.cache_data(ttl=300, show_spinner=False)
 def get_hip3_volumes():
     return _get_hip3_volumes()
+
+@st.cache_data(ttl=300, show_spinner=False)
+def get_yex_volumes():
+    """Fetch YEX volumes from Hyperliquid testnet."""
+    yex_pairs = ["yex:US3M", "yex:VXX", "yex:BTCSWP"]
+    result = {}
+    total = 0
+    for pair in yex_pairs:
+        vol = fetch_hip3_volume(pair)
+        result[pair] = vol
+        total += vol["notional_volume"]
+    result["total_notional"] = round(total, 2)
+    return result
 
 @st.cache_data(ttl=300, show_spinner=False)
 def get_testnet_analytics():
@@ -110,923 +69,1361 @@ def get_testnet_analytics():
 def get_season_comparison():
     return _get_season_comparison()
 
+# ---------------------------------------------------------------------------
 # Page config
+# ---------------------------------------------------------------------------
+
 st.set_page_config(
-    page_title="Nunchi Stats",
+    page_title="Nunchi House Stats",
     page_icon="",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
 
-# Nunchi Brand CSS - Warm paper theme
+# ---------------------------------------------------------------------------
+# CSS — Figma spec tokens (pixel-perfect match to node-id=21:900)
+# ---------------------------------------------------------------------------
+
+st.markdown(
+    '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=DM+Serif+Display&display=swap" rel="stylesheet">',
+    unsafe_allow_html=True,
+)
+
 st.markdown("""
 <style>
-    /* Import Inter font */
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+/* ===== Design tokens from Figma (node 21:900) ===== */
+:root {
+    --bg: #F7F2EA;
+    --dark: #1B1B1F;
+    --muted: #4A4450;
+    --border: #D8D2D8;
+    --border-60: rgba(216, 210, 216, 0.6);
+    --border-50: rgba(216, 210, 216, 0.5);
+    --green: #00C950;
+    --gold: #A87037;
+    --white: #FFFFFF;
+    --desc-text: #4d453d;
+}
 
-    /* CSS Variables - Nunchi Brand Tokens */
-    :root {
-        --bg: #F6F1EA;
-        --panel: #FFFCF7;
-        --ink: #121317;
-        --muted: #6C6A63;
-        --line: #E2D8C7;
-        --line2: #EDE3D6;
-        --accent: #8A7650;
-        --accent2: #B9A98A;
-        --green: #2BB673;
-    }
+/* ===== Aggressive Streamlit reset ===== */
+.stApp { background: var(--bg) !important; }
+.main .block-container {
+    background: transparent !important;
+    padding: 0 48px 48px 48px !important;
+    max-width: 1600px !important;
+}
+header[data-testid="stHeader"], #MainMenu, footer { display: none !important; }
+[data-testid="stSidebar"] { background-color: var(--white) !important; border-right: 1px solid var(--border) !important; }
 
-    /* Main app background */
-    .stApp {
-        background: linear-gradient(180deg, #FBF8F2 0%, #F4EFE6 100%) !important;
-    }
+/* Kill ALL default Streamlit vertical gaps */
+[data-testid="stVerticalBlock"] > div { gap: 0 !important; }
+.stApp [data-testid="stVerticalBlock"] { gap: 0 !important; }
+[data-testid="stHorizontalBlock"] { gap: 24px !important; }
+[data-testid="element-container"] { margin: 0 !important; }
+.element-container { margin: 0 !important; }
+[data-testid="stMarkdown"] { margin: 0 !important; padding: 0 !important; }
 
-    .main .block-container {
-        background: transparent !important;
-        padding-top: 0;
-        padding-bottom: 2rem;
-        max-width: 1600px;
-    }
+/* ===== Global typography (Inter is the sole font in Figma export) ===== */
+*, p, span, div, label, a, td, th {
+    font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif !important;
+    -webkit-font-smoothing: antialiased;
+}
 
-    /* Hide Streamlit branding */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
+/* ===== Navbar (node 21:1276) ===== */
+.nav-bar {
+    background: rgba(247, 242, 234, 0.4);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border-50);
+    border-radius: 7px;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 0 -48px 0 -48px;
+    position: sticky;
+    top: 0;
+    z-index: 999;
+}
+.nav-left {
+    display: flex;
+    align-items: center;
+    gap: 37px;
+}
+.nav-logo {
+    display: inline-grid;
+    grid-template-columns: max-content;
+    grid-template-rows: max-content;
+    align-items: center;
+    padding-left: 8px;
+}
+.nav-logo-nunchi {
+    font-family: 'Inter', sans-serif !important;
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: 2.5px;
+    color: var(--dark);
+    text-transform: uppercase;
+}
+.nav-logo-house {
+    font-family: 'Canela Text', Georgia, 'DM Serif Display', serif !important;
+    font-size: 18.27px;
+    font-weight: 700;
+    color: var(--dark);
+    margin-left: 8px;
+}
+.nav-pills {
+    display: inline-grid;
+    grid-template-columns: max-content;
+    grid-template-rows: max-content;
+    align-items: center;
+}
+.nav-pill-perps {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(244, 178, 44, 0.08);
+    border: 1px solid rgba(244, 178, 44, 0.32);
+    border-radius: 12px;
+    padding: 9px 11px 9px 9px;
+    font-family: 'Avenir', 'Inter', sans-serif !important;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 16.8px;
+    color: var(--dark);
+    text-decoration: none;
+    white-space: nowrap;
+}
+.nav-pill-perps:hover { opacity: 0.85; text-decoration: none; color: var(--dark); }
+.nav-pill-chips {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 9px;
+    font-family: 'Avenir', 'Inter', sans-serif !important;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 16.8px;
+    color: var(--dark);
+    text-decoration: none;
+    white-space: nowrap;
+    margin-left: 0;
+}
+.nav-pill-chips:hover { opacity: 0.85; text-decoration: none; color: var(--dark); }
+.nav-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.wallet-pill {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--white);
+    border: 1px solid var(--border-60);
+    border-radius: 999px;
+    padding: 9px 13px 9px 9px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--dark);
+    overflow: hidden;
+}
+.wallet-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.usdyp-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--gold);
+    flex-shrink: 0;
+    overflow: hidden;
+}
+.wallet-balance {
+    font-family: 'Inter', sans-serif !important;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--dark);
+    text-align: center;
+    white-space: nowrap;
+}
+.wallet-sep {
+    width: 1px;
+    height: 20px;
+    background: var(--border);
+}
+.wallet-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.wallet-user-icon {
+    position: relative;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--border-60);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: var(--muted);
+}
+.wallet-user-icon::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+    border: 2px solid var(--white);
+}
+.wallet-addr {
+    font-family: 'Inter', sans-serif !important;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--dark);
+    white-space: nowrap;
+}
+.nav-gear {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    color: var(--muted);
+    cursor: pointer;
+}
 
-    /* Typography */
-    h1, h2, h3 {
-        font-family: Georgia, "Times New Roman", serif !important;
-        color: var(--ink) !important;
-        font-weight: 700 !important;
-        letter-spacing: -0.5px;
-    }
+/* ===== Page header (nodes 21:902-21:904) ===== */
+.page-header {
+    padding: 24px 0 0 0;
+}
+.breadcrumb {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--dark);
+    line-height: normal;
+    white-space: nowrap;
+}
+.page-subtitle {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--dark);
+    margin-top: 8px;
+    line-height: normal;
+}
+.page-desc {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--desc-text);
+    margin-top: 4px;
+    line-height: normal;
+    max-width: 700px;
+}
 
-    h1 {
-        font-size: 2.2rem !important;
-        margin-bottom: 0.25rem !important;
-    }
+/* ===== Tab toggle — st.radio pill override (node 21:1352) ===== */
+.tab-radio {
+    margin-top: 24px;
+    margin-bottom: 0;
+}
+.tab-radio [data-testid="stRadioGroup"] > div {
+    display: inline-flex !important;
+    gap: 0 !important;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--white);
+    padding: 4px;
+    height: 42px;
+    align-items: center;
+    width: auto !important;
+}
+.tab-radio [data-testid="stRadioGroup"] label {
+    border-radius: 999px !important;
+    padding: 0 28px !important;
+    height: 34px !important;
+    display: flex !important;
+    align-items: center !important;
+    font-size: 12px !important;
+    font-weight: 400 !important;
+    cursor: pointer !important;
+    margin: 0 !important;
+    background: transparent !important;
+    color: #6b6258 !important;
+    white-space: nowrap !important;
+    transition: background 0.15s, color 0.15s;
+}
+.tab-radio [data-testid="stRadioGroup"] label > div:first-child { display: none !important; }
+.tab-radio [data-testid="stWidgetLabel"] { display: none !important; }
+.tab-radio [data-testid="stRadioGroup"] label[data-checked="true"],
+.tab-radio [data-testid="stRadioGroup"] label[aria-checked="true"],
+.tab-radio [data-testid="stRadioGroup"] div[data-checked="true"] label,
+.tab-radio [data-testid="stRadioGroup"] label:has(input:checked) {
+    background: var(--dark) !important;
+    color: var(--white) !important;
+}
+.tab-radio [data-testid="stRadioGroup"] label[data-baseweb="radio"] input:checked + div {
+    background: var(--dark) !important;
+    color: var(--white) !important;
+}
+.tab-radio [data-testid="stRadioGroup"] [role="radiogroup"] > label[data-testid="stMarkdownContainer"],
+.tab-radio [data-testid="stRadioGroup"] [role="radiogroup"] > div[aria-checked="true"] > label {
+    background: var(--dark) !important;
+    color: var(--white) !important;
+}
 
-    h2, .stSubheader {
-        font-size: 1.1rem !important;
-        font-weight: 650 !important;
-        letter-spacing: 0.6px;
-    }
+/* Info chips row (nodes 21:909, 21:912) */
+.info-chips-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 12px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+}
+.info-chip {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 8px 16px;
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--dark);
+    line-height: normal;
+    white-space: nowrap;
+}
 
-    p, span, div, label {
-        font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif !important;
-        color: var(--ink);
-    }
+/* ===== Panel cards (nodes 21:915, 21:956) ===== */
+.panel {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    min-height: 315px;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+.panel-label {
+    font-size: 12px;
+    font-weight: 400;
+    letter-spacing: 0;
+    color: var(--dark);
+    line-height: normal;
+    margin-bottom: 8px;
+}
+.panel-title {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--dark);
+    line-height: normal;
+}
+.panel-desc {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--dark);
+    line-height: normal;
+    margin-bottom: 20px;
+}
 
-    /* Muted text */
-    .muted-text {
-        color: var(--muted) !important;
-        font-size: 0.9rem;
-        font-weight: 500;
-    }
+/* ===== Metric row (TOTAL TVL | LP WALLETS, nodes 21:923-21:928) ===== */
+.metric-row {
+    display: flex;
+    gap: 48px;
+    margin-bottom: 20px;
+}
+.metric-label {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--dark);
+    text-transform: uppercase;
+    line-height: normal;
+}
+.metric-value {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--dark);
+    margin-top: 4px;
+    line-height: normal;
+}
 
-    /* Top bar */
-    .top-bar {
-        background: var(--panel);
-        border-bottom: 1px solid var(--line);
-        padding: 18px 0;
-        margin: -1rem -1rem 1.5rem -1rem;
-    }
+/* ===== TVL bar rows (nodes 21:929-21:955) ===== */
+.tvl-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+.tvl-row {
+    display: flex;
+    align-items: center;
+    height: 30px;
+}
+.tvl-name {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--dark);
+    min-width: 130px;
+    line-height: normal;
+}
+.tvl-val {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--dark);
+    min-width: 80px;
+    text-align: right;
+    padding-right: 12px;
+    line-height: normal;
+}
+.tvl-bar-track {
+    flex: 1;
+    height: 18px;
+    background: var(--border-60);
+    border-radius: 4px;
+    overflow: hidden;
+}
+.tvl-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+}
+.tvl-bar-fill.nlp { background: var(--gold); }
+.tvl-bar-fill.pendle { background: #6B5B95; }
+.tvl-bar-fill.nhype { background: var(--green); }
 
-    .top-bar-inner {
-        max-width: 1600px;
-        margin: 0 auto;
-        padding: 0 2rem;
-        display: flex;
-        justify-content: flex-start;
-        align-items: center;
-    }
+/* ===== Players stat grid (nodes 21:970-21:990) ===== */
+.players-divider {
+    width: 100%;
+    height: 1px;
+    background: var(--border);
+    margin: 16px 0 16px 0;
+}
+.stat-table {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    row-gap: 14px;
+    column-gap: 24px;
+}
+.stat-table-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+}
+.stat-table-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--dark);
+    line-height: normal;
+}
+.stat-table-value {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--dark);
+    line-height: normal;
+}
 
-    .brand {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
+/* ===== Section header (PLAYER FEED, AGENT FLOW, etc.) ===== */
+.section-hdr {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+}
+.section-label {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--dark);
+    line-height: normal;
+}
+.section-pill {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 4px 12px;
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--dark);
+    letter-spacing: 0;
+}
+.section-title {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--dark);
+    line-height: normal;
+    margin-bottom: 2px;
+}
+.section-desc {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--dark);
+    line-height: normal;
+    margin-bottom: 12px;
+}
 
-    .brand-name {
-        font-family: Inter, sans-serif;
-        font-size: 16px;
-        font-weight: 800;
-        letter-spacing: 3px;
-        color: var(--ink);
-    }
+/* ===== Chart row — style Streamlit column internals as cards ===== */
+.chart-row [data-testid="stColumn"] > div > div {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px 24px;
+    overflow: hidden;
+}
+.chart-row [data-testid="stColumn"] > div > [data-testid="stVerticalBlockBorderWrapper"] > div {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px 24px;
+    overflow: hidden;
+}
 
-    .brand-sub {
-        font-family: Inter, sans-serif;
-        font-size: 14px;
-        font-weight: 650;
-        letter-spacing: 2px;
-        color: var(--accent);
-    }
+/* ===== Agent flow card (node 21:1034) ===== */
+.side-card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px 24px;
+    min-height: 356px;
+    box-sizing: border-box;
+}
+.agent-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 12px;
+}
+.agent-box {
+    background: var(--bg);
+    border: 1px solid var(--border-60);
+    border-radius: 12px;
+    padding: 14px 16px;
+    min-height: 80px;
+}
+.agent-box-label {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--dark);
+    text-transform: uppercase;
+    line-height: normal;
+    margin-bottom: 6px;
+}
+.agent-box-value {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--dark);
+    line-height: normal;
+}
+.agent-box-desc {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--dark);
+    margin-top: 4px;
+    line-height: normal;
+}
 
-    /* Metric cards */
-    [data-testid="stMetric"] {
-        background: var(--panel) !important;
-        border: 1px solid var(--line) !important;
-        border-radius: 18px !important;
-        padding: 20px 22px !important;
-        box-shadow: 0 10px 14px rgba(0, 0, 0, 0.08) !important;
-    }
+/* ===== Feed composition (node 21:1228) ===== */
+.fc-box {
+    background: var(--bg);
+    border: 1px solid var(--border-60);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+}
+.fc-box-label {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--dark);
+    text-transform: uppercase;
+    line-height: normal;
+}
+.fc-box-value {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--dark);
+    line-height: normal;
+    margin-top: 2px;
+}
+.fc-venue-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--dark);
+    margin-bottom: 4px;
+    line-height: normal;
+}
+.fc-venue-list {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--dark);
+    line-height: normal;
+    padding-left: 16px;
+    margin: 0;
+}
+.fc-venue-list li { margin-bottom: 2px; }
+.fc-pills {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 10px;
+}
+.fc-pill {
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--dark);
+    text-align: center;
+    background: var(--white);
+    line-height: normal;
+}
 
-    [data-testid="stMetric"]:hover {
-        box-shadow: 0 12px 28px rgba(0, 0, 0, 0.1) !important;
-    }
+/* ===== Competition section (node 21:1060) ===== */
+.comp-section-label {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--dark);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    line-height: normal;
+}
+.comp-section-heading {
+    font-family: 'Inter', sans-serif !important;
+    font-size: 38px;
+    font-weight: 400;
+    color: var(--dark);
+    line-height: normal;
+    margin-bottom: 8px;
+}
+.comp-section-desc {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--desc-text);
+    line-height: normal;
+    margin-bottom: 24px;
+    max-width: 754px;
+}
 
-    [data-testid="stMetricLabel"] {
-        font-family: Inter, ui-sans-serif, system-ui, sans-serif !important;
-        font-size: 12px !important;
-        font-weight: 650 !important;
-        letter-spacing: 0.7px !important;
-        text-transform: uppercase !important;
-        color: var(--muted) !important;
-    }
+/* Competition card (nodes 21:1067, 21:1115, 21:1135, 21:1162) */
+.comp-card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px 24px;
+    min-height: 288px;
+    box-sizing: border-box;
+    position: relative;
+    overflow: hidden;
+}
+.comp-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 16px;
+}
+.comp-card-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+/* YP logo — gradient per Figma: from-[#fdecc1] 85.7% to-[#a87037] 161.6% */
+.yp-logo {
+    width: 92px;
+    height: 92px;
+    border-radius: 50%;
+    background: linear-gradient(180deg, #fdecc1 85.7%, #a87037 161.6%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+.yp-logo-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Canela Text', 'DM Serif Display', Georgia, serif !important;
+    font-size: 45.48px;
+    font-weight: 700;
+    color: transparent;
+    background: linear-gradient(180deg, #fdecc1 85.7%, #a87037 161.6%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    letter-spacing: 29.56px;
+    line-height: 16.99px;
+    text-align: center;
+    white-space: pre-wrap;
+}
+.yp-logo-text {
+    font-family: 'Canela Text', 'DM Serif Display', Georgia, serif !important;
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--white);
+    letter-spacing: 4px;
+}
+.comp-card-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.comp-card-name {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--dark);
+    line-height: normal;
+}
+.comp-card-date {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--dark);
+    line-height: normal;
+}
+.comp-venue-pill {
+    background: var(--bg);
+    border: 1px solid var(--border-60);
+    border-radius: 999px;
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--dark);
+    white-space: nowrap;
+    align-self: flex-start;
+}
+.comp-meta {
+    display: flex;
+    gap: 32px;
+    margin-bottom: 16px;
+}
+.comp-meta-label {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--dark);
+    text-transform: uppercase;
+    line-height: normal;
+}
+.comp-meta-value {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--dark);
+    margin-top: 4px;
+    line-height: normal;
+}
+.comp-divider {
+    width: 100%;
+    height: 1px;
+    background: var(--border);
+    margin: 12px 0;
+}
+.comp-wallets-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--dark);
+    margin-bottom: 8px;
+    line-height: normal;
+}
+.wallet-rows-container {
+    border: 1px solid var(--border-60);
+    border-radius: 12px;
+    overflow: hidden;
+}
+.wallet-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-60);
+    font-size: 12px;
+}
+.wallet-row:last-child { border-bottom: none; }
+.wallet-rank {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--border-60);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--dark);
+    flex-shrink: 0;
+}
+.wallet-addr-cell {
+    font-family: 'Inter', sans-serif !important;
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--dark);
+    flex: 1;
+}
+.wallet-pnl {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--dark);
+    margin-left: auto;
+}
 
-    [data-testid="stMetricValue"] {
-        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
-        font-size: 1.5rem !important;
-        font-weight: 750 !important;
-        color: var(--ink) !important;
-    }
+/* ===== Footer (node 21:1182) ===== */
+.page-footer {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--dark);
+    padding: 24px 0;
+    margin-top: 40px;
+    border-top: 1px solid var(--border);
+    line-height: normal;
+}
 
-    [data-testid="stMetricDelta"] {
-        color: var(--accent) !important;
-    }
+/* Remove default Streamlit horizontal rule styling */
+hr { border-color: var(--border) !important; }
 
-    /* Sidebar styling */
-    [data-testid="stSidebar"] {
-        background-color: var(--panel) !important;
-        border-right: 1px solid var(--line) !important;
-    }
-
-    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] {
-        color: var(--ink) !important;
-    }
-
-    /* Buttons */
-    .stButton > button {
-        background-color: var(--panel) !important;
-        color: var(--ink) !important;
-        border: 1.5px solid var(--line) !important;
-        border-radius: 18px !important;
-        font-family: Inter, sans-serif !important;
-        font-weight: 500 !important;
-        padding: 0.5rem 1.5rem !important;
-        transition: all 0.2s ease !important;
-    }
-
-    .stButton > button:hover {
-        border-color: var(--accent) !important;
-        color: var(--accent) !important;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
-    }
-
-    /* Dividers */
-    hr {
-        border: none !important;
-        height: 1px !important;
-        background: var(--line) !important;
-        margin: 1.5rem 0 !important;
-    }
-
-    /* Tabs - match design mockup */
-    .stTabs [data-baseweb="tab-list"] {
-        background-color: transparent !important;
-        gap: 24px;
-        border-bottom: none !important;
-    }
-
-    .stTabs [data-baseweb="tab"] {
-        background-color: transparent !important;
-        border: none !important;
-        border-radius: 0 !important;
-        color: var(--muted) !important;
-        font-family: Inter, sans-serif !important;
-        font-weight: 600 !important;
-        font-size: 13px !important;
-        padding: 8px 0 !important;
-    }
-
-    .stTabs [data-baseweb="tab"][aria-selected="true"] {
-        background-color: transparent !important;
-        color: var(--ink) !important;
-        font-weight: 700 !important;
-    }
-
-    .stTabs [data-baseweb="tab-highlight"] {
-        display: none !important;
-    }
-
-    .stTabs [data-baseweb="tab-border"] {
-        display: none !important;
-    }
-
-    /* Card containers */
-    .card {
-        background: var(--panel);
-        border: 1px solid var(--line);
-        border-radius: 18px;
-        padding: 24px;
-        box-shadow: 0 10px 14px rgba(0, 0, 0, 0.08);
-        margin-bottom: 1rem;
-    }
-
-    .card-header {
-        font-family: Inter, sans-serif;
-        font-size: 16px;
-        font-weight: 650;
-        color: var(--ink);
-        margin-bottom: 4px;
-    }
-
-    .card-subtitle {
-        font-family: Inter, sans-serif;
-        font-size: 14px;
-        font-weight: 500;
-        color: var(--muted);
-        margin-bottom: 16px;
-    }
-
-    /* Data table styling */
-    .data-row {
-        background: #FFFEFB;
-        border: 1px solid var(--line2);
-        border-radius: 12px;
-        padding: 16px 20px;
-        margin-bottom: 8px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-
-    .data-label {
-        font-family: Inter, sans-serif;
-        font-size: 14px;
-        font-weight: 500;
-        color: var(--muted);
-    }
-
-    .data-value {
-        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-        font-size: 14px;
-        font-weight: 500;
-        color: var(--muted);
-    }
-
-    /* APY pills */
-    .apy-pill {
-        display: inline-flex;
-        align-items: center;
-        background: #FFFFFF;
-        border: 1px solid var(--line);
-        border-radius: 17px;
-        padding: 8px 16px;
-        margin-right: 12px;
-        margin-bottom: 12px;
-    }
-
-    .apy-pill-label {
-        font-family: Inter, sans-serif;
-        font-size: 12px;
-        font-weight: 650;
-        letter-spacing: 0.7px;
-        color: var(--muted);
-        margin-right: 12px;
-    }
-
-    .apy-pill-value {
-        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-        font-size: 14px;
-        font-weight: 500;
-        color: var(--muted);
-    }
-
-    /* Pool status badges */
-    .pool-active {
-        color: #2BB673;
-        font-weight: 600;
-    }
-
-    .pool-expired {
-        color: #D9534F;
-        font-weight: 600;
-    }
-
-    /* Footer */
-    .footer {
-        text-align: center;
-        padding: 1.5rem 0;
-        border-top: 1px solid var(--line);
-        margin-top: 2rem;
-    }
-
-    .footer-text {
-        font-family: Inter, sans-serif;
-        font-size: 12px;
-        color: var(--muted);
-    }
-
-    .footer-link {
-        color: var(--accent) !important;
-        text-decoration: underline;
-        font-size: 12px;
-        font-family: Inter, sans-serif;
-        font-weight: 650;
-    }
-
-    /* DataFrames */
-    .stDataFrame {
-        border: 1px solid var(--line) !important;
-        border-radius: 12px !important;
-    }
-
-    /* Info boxes */
-    .stAlert {
-        background-color: var(--panel) !important;
-        border: 1px solid var(--line) !important;
-        border-radius: 12px !important;
-        color: var(--muted) !important;
-    }
-
-    /* Caption text */
-    .stCaption {
-        color: var(--muted) !important;
-        font-size: 12px !important;
-    }
+/* Force plotly charts to not add extra padding */
+[data-testid="stPlotlyChart"] > div { margin-top: -8px; }
 </style>
 """, unsafe_allow_html=True)
 
-# Plotly theme for warm colors
-PLOTLY_TEMPLATE = {
-    'layout': {
-        'paper_bgcolor': '#F6F1EA',
-        'plot_bgcolor': '#FFFFFF',
-        'font': {'family': 'Inter, sans-serif', 'color': '#121317'},
-        'xaxis': {'gridcolor': '#EFE7DB', 'linecolor': '#E2D8C7'},
-        'yaxis': {'gridcolor': '#EFE7DB', 'linecolor': '#E2D8C7'},
-        'colorway': ['#121317', '#8A7650', '#2BB673', '#B9A98A', '#6C6A63'],
-    }
-}
+# ---------------------------------------------------------------------------
+# Sidebar (minimal)
+# ---------------------------------------------------------------------------
 
-# Sidebar
 with st.sidebar:
     st.markdown("### Settings")
-    days = st.slider("Time Range (days)", 1, 30, 1)
-
-    st.markdown("---")
-
-    if st.button("Refresh Recent Data"):
+    if st.button("Refresh Data"):
         clear_cache()
         st.rerun()
-
-    if st.button("Refresh All-Time Totals"):
+    if st.button("Refresh All-Time"):
         save_alltime_cache({})
         st.cache_data.clear()
         clear_cache()
         st.rerun()
 
-    st.markdown("---")
-    st.markdown("**Contracts**")
-    st.code(f"wNLP: {CONTRACTS['wNLP'][:10]}...", language=None)
-    st.code(f"nHYPE: {CONTRACTS['nHYPE'][:10]}...", language=None)
-
-    st.markdown("---")
-    st.markdown("**Links**")
-    st.markdown("[Nunchi](https://nunchi.trade) | [Docs](https://docs.nunchi.trade)")
-
-# Top bar header
-current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
-st.markdown(f"""
-<div class="top-bar">
-    <div class="top-bar-inner">
-        <div class="brand">
-            <span class="brand-name">NUNCHI</span>
-            <span class="brand-sub">STATS</span>
-        </div>
-    </div>
-</div>
-""", unsafe_allow_html=True)
-
-# Load all data with error handling
-try:
-    apy_data = get_pendle_apy()
-except Exception as e:
-    st.warning(f"Failed to load Pendle APY: {e}")
-    apy_data = {}
+# ---------------------------------------------------------------------------
+# Load data
+# ---------------------------------------------------------------------------
 
 try:
     accurate_tvl = get_accurate_tvl()
-except Exception as e:
-    st.warning(f"Failed to load TVL: {e}")
-    accurate_tvl = {'wNLP_tvl': 0, 'SY_tvl': 0, 'nHYPE_tvl': 0}
+except Exception:
+    accurate_tvl = {"wNLP_tvl": 0, "SY_tvl": 0, "nHYPE_tvl": 0}
+
+try:
+    apy_data = get_pendle_apy()
+except Exception:
+    apy_data = {}
 
 with st.spinner("Loading data..."):
     try:
         alltime_totals = get_alltime_totals_hyperscan()
-    except Exception as e:
-        st.warning(f"Failed to load all-time totals: {e}")
+    except Exception:
         alltime_totals = {}
 
     try:
         alltime_pendle = get_alltime_pendle_markets()
-    except Exception as e:
-        st.warning(f"Failed to load Pendle markets: {e}")
+    except Exception:
         alltime_pendle = {}
 
     try:
-        pendle_peak_tvls = get_pendle_peak_tvls()
-    except Exception as e:
-        pendle_peak_tvls = {}
-
-    try:
-        kpis = get_kpi_summary(days)
-    except Exception as e:
-        kpis = {}
-
-    try:
         hip3_volumes = get_hip3_volumes()
-    except Exception as e:
+    except Exception:
         hip3_volumes = {}
 
     try:
         yex_volumes = get_yex_volumes()
-    except Exception as e:
+    except Exception:
         yex_volumes = {}
 
     try:
         testnet_data = get_testnet_analytics()
-    except Exception as e:
-        st.warning(f"Failed to load testnet data: {e}")
+    except Exception:
         testnet_data = {}
 
-# Main tabs - matching design mockup
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["Overview", "Yield Tokenization", "HIP-3 Liquidity", "HIP-3 Staking", "Testnet (Proxy)"])
-
-# ============== TAB 1: OVERVIEW ==============
-with tab1:
-    st.markdown("## Overview")
-    st.markdown('<p class="muted-text">Protocol-wide metrics across all Nunchi products.</p>', unsafe_allow_html=True)
-
-    # Current TVL row
-    st.markdown("### Current TVL")
-    col1, col2, col3, col4 = st.columns(4)
-
-    with col1:
-        st.metric("NLP TVL", f"${accurate_tvl['wNLP_tvl']:,.0f}", help="Stablecoin vault TVL")
-
-    with col2:
-        st.metric("nHYPE TVL", f"{accurate_tvl['nHYPE_tvl']:,.0f} HYPE", help="nHYPE vault TVL")
-
-    with col3:
-        st.metric("PENDLE SY TVL", f"{accurate_tvl['SY_tvl']:,.0f}", help="SY wrappers from nLP flows")
-
-    with col4:
-        pendle_tvl_usd = sum(info['tvl_usd'] for info in apy_data.values()) if apy_data else 0
-        st.metric("PENDLE TVL (USD)", f"${pendle_tvl_usd:,.0f}", help="TVL in Pendle markets")
-
-    st.markdown("---")
-
-    # All-time totals
-    st.markdown("### All-Time Totals")
-    st.markdown('<p class="muted-text">Since contract deployment on HyperEVM.</p>', unsafe_allow_html=True)
-
-    if alltime_totals and 'wNLP' in alltime_totals:
-        wNLP = alltime_totals['wNLP']
-        SY = alltime_totals['SY_wNLP']
-
-        # Calculate user counts
-        nlp_depositors = wNLP.get('unique_users', 0)
-
-        # Get Pendle users across both pools
-        pendle_users_total = 0
-        if alltime_pendle:
-            for market_name, stats in alltime_pendle.items():
-                if market_name != 'timestamp':
-                    pendle_users_total += stats.get('unique_users', 0)
-
-        # Get testnet + simulator users
-        testnet_users = 0
-        if testnet_data:
-            testnet_users = testnet_data.get('totals', {}).get('total_users', 0)
-
-        # Total unique users = NLP + Pendle + Testnet/Simulator
-        total_unique = nlp_depositors + pendle_users_total + testnet_users
-
-        # Row 1: Users
-        col_u1, col_u2, col_u3, col_u4 = st.columns(4)
-        with col_u1:
-            st.metric("TOTAL UNIQUE USERS", f"{total_unique:,}", help="NLP + Pendle + Testnet users")
-        with col_u2:
-            st.metric("NLP DEPOSITORS", f"{nlp_depositors:,}", help="Vault depositors")
-        with col_u3:
-            st.metric("PENDLE USERS", f"{pendle_users_total:,}", help="Users across both pools")
-        with col_u4:
-            st.metric("TESTNET USERS", f"{testnet_users:,}", help="Simulator + S1 + S2 users")
-
-        # Row 2: nLP metrics
-        st.markdown("#### nLP Metrics")
-        col_n1, col_n2, col_n3, col_n4 = st.columns(4)
-        with col_n1:
-            st.metric("NLP DEPOSITS", f"${wNLP['deposits']:,.0f}")
-        with col_n2:
-            st.metric("NLP WITHDRAWALS", f"${wNLP['withdrawals']:,.0f}")
-        with col_n3:
-            st.metric("NLP VOLUME", f"${wNLP['volume']:,.0f}")
-        with col_n4:
-            st.metric("NLP TRANSFERS", f"{wNLP['transfer_count']:,}")
-
-        # Row 3: Pendle metrics
-        st.markdown("#### Pendle Metrics")
-        col_p1, col_p2, col_p3, col_p4 = st.columns(4)
-        with col_p1:
-            st.metric("PENDLE DEPOSITS", f"${SY['deposits']:,.0f}")
-        with col_p2:
-            st.metric("PENDLE WITHDRAWALS", f"${SY['withdrawals']:,.0f}")
-        with col_p3:
-            st.metric("PENDLE VOLUME", f"${SY['volume']:,.0f}")
-        with col_p4:
-            st.metric("PENDLE TRANSFERS", f"{SY['transfer_count']:,}")
-
-# ============== TAB 2: YIELD TOKENIZATION ==============
-with tab2:
-    st.markdown("## Yield Tokenization")
-    st.markdown('<p class="muted-text">Pendle integration: yield tokenization (YT/PT/LP) for nLP.</p>', unsafe_allow_html=True)
-
-    # APY metrics
-    if apy_data:
-        total_tvl = sum(info['tvl_usd'] for info in apy_data.values())
-        total_daily_yield = sum(info['daily_yield'] for info in apy_data.values())
-
-        if total_tvl > 0:
-            avg_underlying_apy = sum(info['underlying_apy'] * info['tvl_usd'] for info in apy_data.values()) / total_tvl
-            avg_implied_apy = sum(info['implied_apy'] * info['tvl_usd'] for info in apy_data.values()) / total_tvl
-        else:
-            avg_underlying_apy = 0
-            avg_implied_apy = 0
-
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            st.metric("PENDLE TVL", f"${total_tvl:,.0f}")
-        with col2:
-            st.metric("UNDERLYING APY", f"{avg_underlying_apy:.1f}%")
-        with col3:
-            st.metric("IMPLIED APY", f"{avg_implied_apy:.1f}%")
-        with col4:
-            st.metric("DAILY YIELD", f"${total_daily_yield:,.2f}")
-
-    st.markdown("---")
-
-    # Pendle Pools breakdown
-    st.markdown("### Pendle Pools")
-
-    if alltime_pendle and len(alltime_pendle) > 1:
-        pool_names = [k for k in alltime_pendle.keys() if k != 'timestamp']
-        pool_cols = st.columns(len(pool_names))
-
-        for idx, market_name in enumerate(pool_names):
-            stats = alltime_pendle[market_name]
-            with pool_cols[idx]:
-                is_expired = "Dec 2025" in market_name
-                status_class = "pool-expired" if is_expired else "pool-active"
-                status_text = "Expired" if is_expired else "Active"
-
-                st.markdown(f"""
-                <div style="margin-bottom: 8px;">
-                    <strong style="font-size: 1.1rem;">{market_name}</strong>
-                    <span class="{status_class}" style="margin-left: 8px;">{status_text}</span>
-                </div>
-                <div style="color: var(--muted); font-size: 13px; margin-bottom: 12px;">Expiry: {stats['expiry']}</div>
-                """, unsafe_allow_html=True)
-
-                if is_expired:
-                    peak_tvl_data = pendle_peak_tvls.get(market_name, {}) if pendle_peak_tvls else {}
-                    peak_tvl = peak_tvl_data.get('peak_tvl', 0) * 2
-                    st.metric("ALL TIME TVL", f"${peak_tvl:,.0f}")
-                else:
-                    market_addr = stats.get('market_address', '').lower()
-                    current_tvl = apy_data.get(market_addr, {}).get('tvl_usd', 0) if apy_data else 0
-                    st.metric("TVL", f"${current_tvl:,.0f}")
-
-                st.metric("SWAP COUNT", f"{stats['swap_count']:,}")
-                st.metric("LP MINTS", f"{stats['mint_count']:,}")
-                st.metric("LP BURNS", f"{stats['burn_count']:,}")
-                st.metric("TOTAL EVENTS", f"{stats['total_events']:,}")
-                st.metric("UNIQUE USERS", f"{stats['unique_users']:,}")
-
-# ============== TAB 3: HIP-3 LIQUIDITY ==============
-with tab3:
-    st.markdown("## HIP-3 Liquidity")
-    st.markdown('<p class="muted-text">nLP vault: stablecoin capital that underwrites market quality and feeds the system loop.</p>', unsafe_allow_html=True)
-
-    # Hero cards
-    col1, col2, col3, col4 = st.columns(4)
-
-    with col1:
-        st.metric("TVL (LIVE)", f"${accurate_tvl['wNLP_tvl']:,.0f}", help="USDC + USDT deposits")
-
-    with col2:
-        # Current APY from Pendle
-        if apy_data:
-            total_tvl = sum(info['tvl_usd'] for info in apy_data.values())
-            if total_tvl > 0:
-                avg_apy = sum(info['underlying_apy'] * info['tvl_usd'] for info in apy_data.values()) / total_tvl
-            else:
-                avg_apy = 0
-            st.metric("CURRENT APY (EST.)", f"{avg_apy:.1f}%", help="Base + rewards")
-        else:
-            st.metric("CURRENT APY (EST.)", "N/A")
-
-    with col3:
-        if apy_data:
-            daily_yield = sum(info['daily_yield'] for info in apy_data.values())
-            st.metric("DAILY DISTRIBUTED", f"${daily_yield:,.2f}", help="7D average")
-        else:
-            st.metric("DAILY DISTRIBUTED", "$0")
-
-    with col4:
-        if apy_data:
-            annual_yield = sum(info['annual_yield'] for info in apy_data.values())
-            st.metric("TOTAL DISTRIBUTED", f"${annual_yield:,.0f}", help="All-time estimated")
-        else:
-            st.metric("TOTAL DISTRIBUTED", "$0")
-
-    st.markdown("---")
-
-    # Two column layout: Yield Profile + Vault Accounting
-    col_left, col_right = st.columns([2, 1])
-
-    with col_left:
-        st.markdown("### Yield Profile")
-        st.markdown('<p class="muted-text">APY breakdown and trend.</p>', unsafe_allow_html=True)
-
-        # APY pills
-        if apy_data:
-            total_tvl = sum(info['tvl_usd'] for info in apy_data.values())
-            if total_tvl > 0:
-                base_apy = sum(info['underlying_apy'] * info['tvl_usd'] for info in apy_data.values()) / total_tvl
-                implied_apy = sum(info['implied_apy'] * info['tvl_usd'] for info in apy_data.values()) / total_tvl
-            else:
-                base_apy = 0
-                implied_apy = 0
-
-            st.markdown(f"""
-            <div style="margin-bottom: 16px;">
-                <span class="apy-pill"><span class="apy-pill-label">BASE</span><span class="apy-pill-value">{base_apy:.1f}%</span></span>
-                <span class="apy-pill"><span class="apy-pill-label">IMPLIED</span><span class="apy-pill-value">{implied_apy:.1f}%</span></span>
-                <span class="apy-pill" style="background: rgba(18,19,23,0.06);"><span class="apy-pill-label">TOTAL (EST.)</span><span class="apy-pill-value">{base_apy:.1f}%</span></span>
-            </div>
-            """, unsafe_allow_html=True)
-
-        # APY Chart
-        apy_history = get_apy_history(days)
-        if not apy_history.empty:
-            fig_apy = go.Figure()
-
-            for market in apy_history['market'].unique():
-                market_data = apy_history[apy_history['market'] == market]
-                fig_apy.add_trace(go.Scatter(
-                    x=market_data['timestamp'],
-                    y=market_data['underlying_apy'],
-                    mode='lines',
-                    name=f'Underlying',
-                    line=dict(width=3, color='#121317'),
-                ))
-                fig_apy.add_trace(go.Scatter(
-                    x=market_data['timestamp'],
-                    y=market_data['implied_apy'],
-                    mode='lines',
-                    name=f'Implied',
-                    line=dict(width=2, color='#8A7650'),
-                ))
-
-            fig_apy.update_layout(
-                paper_bgcolor='#FFFFFF',
-                plot_bgcolor='#FFFFFF',
-                font=dict(family='Inter, sans-serif', color='#121317'),
-                xaxis=dict(gridcolor='#EFE7DB', linecolor='#E2D8C7', title=''),
-                yaxis=dict(gridcolor='#EFE7DB', linecolor='#E2D8C7', title='APY (%)'),
-                height=280,
-                margin=dict(l=40, r=20, t=20, b=40),
-                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-                showlegend=True,
-            )
-            st.plotly_chart(fig_apy, use_container_width=True)
-
-    with col_right:
-        st.markdown("### Vault Accounting")
-        st.markdown('<p class="muted-text">All-time event accounting.</p>', unsafe_allow_html=True)
-
-        if alltime_totals and 'wNLP' in alltime_totals:
-            wNLP = alltime_totals['wNLP']
-
-            st.markdown(f"""
-            <div class="data-row"><span class="data-label">Deposits</span><span class="data-value">${wNLP['deposits']:,.0f}</span></div>
-            <div class="data-row"><span class="data-label">Withdrawals</span><span class="data-value">${wNLP['withdrawals']:,.0f}</span></div>
-            <div class="data-row"><span class="data-label">Net deposits</span><span class="data-value">${wNLP['deposits'] - wNLP['withdrawals']:,.0f}</span></div>
-            <div class="data-row"><span class="data-label">Transfers</span><span class="data-value">{wNLP['transfer_count']:,}</span></div>
-            <div class="data-row"><span class="data-label">Unique users</span><span class="data-value">{wNLP['unique_users']:,}</span></div>
-            """, unsafe_allow_html=True)
-
-# ============== TAB 4: HIP-3 STAKING ==============
-with tab4:
-    st.markdown("## HIP-3 Staking")
-    st.markdown('<p class="muted-text">nHYPE: liquid staking token for HYPE supporting the HIP-3 bond.</p>', unsafe_allow_html=True)
-
-    # Hero cards
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        st.metric("nHYPE TVL", f"{accurate_tvl['nHYPE_tvl']:,.0f} HYPE", help="Total HYPE staked")
-
-    with col2:
-        st.metric("nHYPE CONTRACT", CONTRACTS['nHYPE'][:18] + "...", help="nHYPE token address")
-
-    with col3:
-        # Placeholder for staking vault when available
-        st.metric("STATUS", "Active", help="Staking is live")
-
-    st.markdown("---")
-
-    # YEX Volume traded section
-    st.markdown("### YEX Volume Traded")
-    st.markdown('<p class="muted-text">Hyperliquid testnet with USDyp.</p>', unsafe_allow_html=True)
-
-    yex_col1, yex_col2, yex_col3, yex_col4 = st.columns(4)
-
-    with yex_col1:
-        yex_us3m_vol = yex_volumes.get('yex:US3M', {}).get('notional_volume', 0)
-        st.metric("US3M VOLUME", f"${yex_us3m_vol:,.0f}")
-
-    with yex_col2:
-        yex_vxx_vol = yex_volumes.get('yex:VXX', {}).get('notional_volume', 0)
-        st.metric("VXX VOLUME", f"${yex_vxx_vol:,.0f}")
-
-    with yex_col3:
-        yex_btcswp_vol = yex_volumes.get('yex:BTCSWP', {}).get('notional_volume', 0)
-        st.metric("BTCSWP VOLUME", f"${yex_btcswp_vol:,.0f}")
-
-    with yex_col4:
-        yex_total_vol = yex_volumes.get('total_notional', 0)
-        st.metric("TOTAL VOLUME", f"${yex_total_vol:,.0f}")
-
-    st.markdown("---")
-
-    # HIP-3 Volume traded section
-    st.markdown("### HIP-3 Volume Traded")
-    st.markdown('<p class="muted-text">Hyperliquid testnet with mockUSDC.</p>', unsafe_allow_html=True)
-
-    vol_col1, vol_col2, vol_col3 = st.columns(3)
-
-    with vol_col1:
-        vxx_vol = hip3_volumes.get('nunchi:VXX', {}).get('notional_volume', 0)
-        st.metric("VXX VOLUME", f"${vxx_vol:,.0f}")
-
-    with vol_col2:
-        us3m_vol = hip3_volumes.get('nunchi:US3M', {}).get('notional_volume', 0)
-        st.metric("US3M VOLUME", f"${us3m_vol:,.0f}")
-
-    with vol_col3:
-        total_vol = hip3_volumes.get('total_notional', 0)
-        st.metric("TOTAL VOLUME", f"${total_vol:,.0f}")
-
-# ============== TAB 5: TESTNET (PROXY) ==============
-with tab5:
-    st.markdown("## Testnet Analytics")
-    st.markdown('<p class="muted-text">MegaETH & Monad testnet activity.</p>', unsafe_allow_html=True)
-
-    if testnet_data:
-        totals = testnet_data.get('totals', {})
-        simulator = testnet_data.get('simulator', {})
-        s1 = testnet_data.get('season_one', {})
-        s2 = testnet_data.get('season_two', {})
-
-        # Hero metrics
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("TOTAL USERS", f"{totals.get('total_users', 0):,}")
-        with col2:
-            st.metric("TOTAL VOLUME", f"${totals.get('total_volume', 0):,.0f}")
-        with col3:
-            avg_vol = totals.get('total_volume', 0) / totals.get('total_users', 1) if totals.get('total_users', 0) > 0 else 0
-            st.metric("AVG / USER", f"${avg_vol:,.0f}")
-
-        st.markdown("---")
-
-        # Simulator
-        st.markdown("### Simulator")
-        col_sim1, col_sim2, col_sim3 = st.columns(3)
-        with col_sim1:
-            st.metric("USERS", f"{simulator.get('total_users', 0):,}")
-        with col_sim2:
-            st.metric("VOLUME", f"${simulator.get('total_volume', 0):,.0f}")
-        with col_sim3:
-            st.metric("AVG / USER", f"${simulator.get('avg_volume_per_user', 0):,.0f}")
-
-        st.markdown("---")
-
-        # Season One & Two side by side
-        col_s1, col_s2 = st.columns(2)
-
-        with col_s1:
-            st.markdown("### Season One")
-            s1_total = s1.get('total', {})
-            st.metric("USERS", f"{s1_total.get('total_users', 0):,}")
-            st.metric("VOLUME", f"${s1_total.get('total_volume', 0):,.0f}")
-            st.metric("NET PROFIT", f"${s1_total.get('net_profit', 0):,.0f}")
-            st.metric("AVG TIME TO CLOSE", s1_total.get('avg_time_to_close_formatted', 'N/A'))
-
-            st.markdown("**By Chain:**")
-            s1_chains = s1.get('by_chain', {})
-            for chain_id, chain_data in s1_chains.items():
-                st.markdown(f"- **{chain_data['name']}**: {chain_data['users']:,} users, ${chain_data['volume']:,.0f}")
-
-            st.markdown("**Top Assets:**")
-            s1_assets = s1.get('by_asset', {})
-            sorted_assets = sorted(s1_assets.items(), key=lambda x: x[1]['volume'], reverse=True)[:5]
-            for asset, data in sorted_assets:
-                st.markdown(f"- **{asset}**: {data['users']:,} users, ${data['volume']:,.0f}")
-
-        with col_s2:
-            st.markdown("### Season Two")
-            s2_total = s2.get('total', {})
-            st.metric("USERS", f"{s2_total.get('total_users', 0):,}")
-            st.metric("VOLUME", f"${s2_total.get('total_volume', 0):,.0f}")
-            st.metric("NET PROFIT", f"${s2_total.get('net_profit', 0):,.0f}")
-            st.metric("AVG TIME TO CLOSE", s2_total.get('avg_time_to_close_formatted', 'N/A'))
-
-            st.markdown("**By Chain:**")
-            s2_chains = s2.get('by_chain', {})
-            for chain_id, chain_data in s2_chains.items():
-                st.markdown(f"- **{chain_data['name']}**: {chain_data['users']:,} users, ${chain_data['volume']:,.0f}")
-
-            st.markdown("**Top Assets:**")
-            s2_assets = s2.get('by_asset', {})
-            sorted_assets = sorted(s2_assets.items(), key=lambda x: x[1]['volume'], reverse=True)[:5]
-            for asset, data in sorted_assets:
-                st.markdown(f"- **{asset}**: {data['users']:,} users, ${data['volume']:,.0f}")
-
-        st.markdown("---")
-
-        # Season Comparison Table
-        st.markdown("### Season Comparison")
-        comparison_data = get_season_comparison()
-
-        if comparison_data:
-            comparison_df = pd.DataFrame(comparison_data)
-            comparison_df = comparison_df[comparison_df['s1_volume'] + comparison_df['s2_volume'] > 0]
-            comparison_df = comparison_df.sort_values('s2_volume', ascending=False)
-
-            display_df = comparison_df[['asset', 's1_users', 's1_volume', 's2_users', 's2_volume', 'user_growth', 'volume_growth']].copy()
-            display_df.columns = ['Asset', 'S1 Users', 'S1 Volume', 'S2 Users', 'S2 Volume', 'User Growth %', 'Vol Growth %']
-            display_df['S1 Volume'] = display_df['S1 Volume'].apply(lambda x: f"${x:,.0f}")
-            display_df['S2 Volume'] = display_df['S2 Volume'].apply(lambda x: f"${x:,.0f}")
-            display_df['User Growth %'] = display_df['User Growth %'].apply(lambda x: f"{x:+.1f}%" if x != 0 else "New")
-            display_df['Vol Growth %'] = display_df['Vol Growth %'].apply(lambda x: f"{x:+.1f}%" if x != 0 else "New")
-
-            st.dataframe(display_df, use_container_width=True, hide_index=True)
-
-        st.markdown("---")
-
-        # Chain Comparison
-        st.markdown("### Chain Comparison")
-        chain_col1, chain_col2 = st.columns(2)
-
-        with chain_col1:
-            st.markdown("**MegaETH (Chain 6342)**")
-            mega_s1 = s1.get('by_chain', {}).get(6342, {'users': 0, 'volume': 0})
-            mega_s2 = s2.get('by_chain', {}).get(6342, {'users': 0, 'volume': 0})
-            st.metric("S1 Users", f"{mega_s1.get('users', 0):,}")
-            st.metric("S1 Volume", f"${mega_s1.get('volume', 0):,.0f}")
-            st.metric("S2 Users", f"{mega_s2.get('users', 0):,}")
-            st.metric("S2 Volume", f"${mega_s2.get('volume', 0):,.0f}")
-
-        with chain_col2:
-            st.markdown("**Monad (Chain 10143)**")
-            monad_s1 = s1.get('by_chain', {}).get(10143, {'users': 0, 'volume': 0})
-            monad_s2 = s2.get('by_chain', {}).get(10143, {'users': 0, 'volume': 0})
-            st.metric("S1 Users", f"{monad_s1.get('users', 0):,}")
-            st.metric("S1 Volume", f"${monad_s1.get('volume', 0):,.0f}")
-            st.metric("S2 Users", f"{monad_s2.get('users', 0):,}")
-            st.metric("S2 Volume", f"${monad_s2.get('volume', 0):,.0f}")
-
-    else:
-        st.info("Testnet analytics data unavailable")
-
-# Footer
-st.markdown(f"""
-<div class="footer">
-    <p class="footer-text">
-        Last updated: <span style="font-family: monospace;">{current_time}</span> ·
-        Metrics sourced from on-chain events and vault accounting.
-    </p>
-    <div style="margin-top: 12px;">
-        <a href="https://nunchi.trade" target="_blank" class="footer-link">Open app</a>
-        <span style="color: var(--muted); margin: 0 8px;">·</span>
-        <a href="https://docs.nunchi.trade" target="_blank" class="footer-link">Documentation</a>
+# ---------------------------------------------------------------------------
+# Derived metrics
+# ---------------------------------------------------------------------------
+
+nlp_tvl = accurate_tvl.get("wNLP_tvl", 0)
+pendle_tvl = sum(info["tvl_usd"] for info in apy_data.values()) if apy_data else 0
+nhype_tvl = accurate_tvl.get("nHYPE_tvl", 0)
+total_tvl = nlp_tvl + pendle_tvl  # nHYPE is in HYPE, not USD
+
+# LP wallets
+nlp_users = alltime_totals.get("wNLP", {}).get("unique_users", 0) if alltime_totals else 0
+pendle_users = 0
+if alltime_pendle:
+    for k, v in alltime_pendle.items():
+        if k != "timestamp":
+            pendle_users += v.get("unique_users", 0)
+total_lp_wallets = nlp_users + pendle_users
+
+# Player totals
+totals = testnet_data.get("totals", {}) if testnet_data else {}
+total_volume = totals.get("total_volume", 0)
+total_wallets = totals.get("total_users", 0)
+
+# Add YEX volume to total
+yex_total = yex_volumes.get("total_notional", 0)
+total_volume += yex_total
+
+# Markets traded
+total_markets = 0
+if testnet_data:
+    s1_assets = testnet_data.get("season_one", {}).get("by_asset", {})
+    s2_assets = testnet_data.get("season_two", {}).get("by_asset", {})
+    all_assets = set(list(s1_assets.keys()) + list(s2_assets.keys()))
+    all_assets.update(["US3M", "VXX", "BTCSWP"])
+    total_markets = len(all_assets)
+
+# Competition data
+simulator = testnet_data.get("simulator", {}) if testnet_data else {}
+s1 = testnet_data.get("season_one", {}) if testnet_data else {}
+s2 = testnet_data.get("season_two", {}) if testnet_data else {}
+
+COMP_INFO = [
+    {
+        "num": "I", "name": "COMPETITION I", "date": "July 2025 - Simulator",
+        "venue": "THE ARENA", "leaderboard": "The Arena",
+        "duration": f"{simulator.get('total_users', 0)} users",
+        "volume": simulator.get("total_volume", 0),
+    },
+    {
+        "num": "II", "name": "COMPETITION II", "date": "September 2025 - Season 1",
+        "venue": "MEGAETH + MONAD", "leaderboard": "MegaETH, Monad",
+        "duration": f"{s1.get('total', {}).get('total_users', 0)} users",
+        "volume": s1.get("total", {}).get("total_volume", 0),
+    },
+    {
+        "num": "III", "name": "COMPETITION III", "date": "November 2025 - Season 2",
+        "venue": "MEGAETH + MONAD + HYPERLIQUID", "leaderboard": "MegaETH, Monad, Hyperliquid",
+        "duration": f"{s2.get('total', {}).get('total_users', 0)} users",
+        "volume": s2.get("total", {}).get("total_volume", 0),
+    },
+    {
+        "num": "IV", "name": "COMPETITION IV", "date": "January 2026 - Hyperliquid Testnet",
+        "venue": "HYPERLIQUID", "leaderboard": "Hyperliquid",
+        "duration": "YEX DEX",
+        "volume": yex_total,
+    },
+]
+
+# ===========================================================================
+# RENDER — pixel-perfect match to Figma node-id=21:900
+# ===========================================================================
+
+# ---------------------------------------------------------------------------
+# 1. NAVBAR (node 21:1276 — sticky header with blur)
+# ---------------------------------------------------------------------------
+
+st.markdown("""
+<div class="nav-bar">
+    <div class="nav-left">
+        <div class="nav-logo">
+            <span class="nav-logo-nunchi">NUNCHI</span>
+            <span class="nav-logo-house">HOUSE</span>
+        </div>
+        <div class="nav-pills">
+            <a href="https://nunchi.trade" target="_blank" class="nav-pill-perps">Back to Perps Trading</a>
+            <a href="https://docs.nunchi.trade" target="_blank" class="nav-pill-chips">How to earn cHIPs &#8599;</a>
+        </div>
     </div>
+    <div class="nav-right">
+        <div class="wallet-pill">
+            <div class="wallet-left">
+                <div class="usdyp-icon">YP</div>
+                <span class="wallet-balance">$3.53K</span>
+            </div>
+            <div class="wallet-sep"></div>
+            <div class="wallet-right">
+                <div class="wallet-user-icon">&#9679;</div>
+                <span class="wallet-addr">0x065D&hellip;C827</span>
+            </div>
+        </div>
+        <div class="nav-gear">&#9881;</div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+# ---------------------------------------------------------------------------
+# 2. PAGE HEADER (nodes 21:902-21:904)
+# ---------------------------------------------------------------------------
+
+st.markdown("""
+<div class="page-header">
+    <div class="breadcrumb">STATS &bull; HOUSE &mdash; PLAYERS</div>
+    <div class="page-subtitle">Liquidity, competition, and agent activity</div>
+    <div class="page-desc">
+        A single institutional view of house liquidity providers, player activity, agent flow,
+        and competition results across the full Nunchi ecosystem.
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+# ---------------------------------------------------------------------------
+# 3. TAB TOGGLE (node 21:1352) + INFO CHIPS (nodes 21:909, 21:912)
+# ---------------------------------------------------------------------------
+
+st.markdown('<div class="tab-radio">', unsafe_allow_html=True)
+active_tab = st.radio(
+    "",
+    ["House", "Players"],
+    horizontal=True,
+    label_visibility="collapsed",
+    key="active_tab",
+)
+st.markdown('</div>', unsafe_allow_html=True)
+
+st.markdown("""
+<div class="info-chips-row">
+    <div class="info-chip">Current TVL = nLP + PT-wNLP + nHYPE</div>
+    <div class="info-chip">Player feed = all competitions composited together</div>
+</div>
+""", unsafe_allow_html=True)
+
+# ---------------------------------------------------------------------------
+# 4. HOUSE + PLAYERS panels — 50/50 (nodes 21:915, 21:956)
+# ---------------------------------------------------------------------------
+
+max_tvl = max(nlp_tvl, pendle_tvl, nhype_tvl, 1)
+
+col_house, col_players = st.columns(2)
+
+with col_house:
+    nlp_pct = min(nlp_tvl / max_tvl * 100, 100)
+    pendle_pct = min(pendle_tvl / max_tvl * 100, 100)
+    nhype_pct = min(nhype_tvl / max_tvl * 100, 100)
+
+    st.markdown(f"""
+    <div class="panel">
+        <div class="panel-label">HOUSE</div>
+        <div class="panel-title">House Liquidity Providers</div>
+        <div class="panel-desc">Unique wallets across nLP, Pendle LP/PT-wNLP, and staked HYPE in nHYPE.</div>
+        <div class="metric-row">
+            <div>
+                <div class="metric-label">TOTAL TVL</div>
+                <div class="metric-value">${total_tvl:,.0f}</div>
+            </div>
+            <div>
+                <div class="metric-label">LP WALLETS</div>
+                <div class="metric-value">{total_lp_wallets:,}</div>
+            </div>
+        </div>
+        <div class="players-divider"></div>
+        <div class="tvl-bars">
+            <div class="tvl-row">
+                <span class="tvl-name">nLP</span>
+                <span class="tvl-val">${nlp_tvl:,.0f}</span>
+                <div class="tvl-bar-track"><div class="tvl-bar-fill nlp" style="width:{nlp_pct:.1f}%"></div></div>
+            </div>
+            <div class="tvl-row">
+                <span class="tvl-name">Pendle LP / PT-wNLP</span>
+                <span class="tvl-val">${pendle_tvl:,.0f}</span>
+                <div class="tvl-bar-track"><div class="tvl-bar-fill pendle" style="width:{pendle_pct:.1f}%"></div></div>
+            </div>
+            <div class="tvl-row">
+                <span class="tvl-name">nHYPE</span>
+                <span class="tvl-val">{nhype_tvl:,.0f} HYPE</span>
+                <div class="tvl-bar-track"><div class="tvl-bar-fill nhype" style="width:{nhype_pct:.1f}%"></div></div>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col_players:
+    st.markdown(f"""
+    <div class="panel">
+        <div class="panel-label">PLAYERS</div>
+        <div class="panel-title">Total Players</div>
+        <div class="panel-desc">Aggregate wallets, volumes, markets, and agent flow across Competition I, II, III, and IV.</div>
+        <div class="metric-row">
+            <div>
+                <div class="metric-label">TOTAL VOLUME</div>
+                <div class="metric-value">${total_volume:,.0f}</div>
+            </div>
+            <div>
+                <div class="metric-label">TOTAL WALLETS</div>
+                <div class="metric-value">{total_wallets:,}</div>
+            </div>
+        </div>
+        <div class="players-divider"></div>
+        <div class="stat-table">
+            <div class="stat-table-item">
+                <span class="stat-table-label">Markets traded</span>
+                <span class="stat-table-value">{total_markets}</span>
+            </div>
+            <div class="stat-table-item">
+                <span class="stat-table-label">Orders filled value</span>
+                <span class="stat-table-value">${total_volume:,.0f}</span>
+            </div>
+            <div class="stat-table-item">
+                <span class="stat-table-label">Active agents</span>
+                <span class="stat-table-value">&mdash;</span>
+            </div>
+            <div class="stat-table-item">
+                <span class="stat-table-label">Composite feed window</span>
+                <span class="stat-table-value">Jul 2025 &rarr; Now</span>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+# ---------------------------------------------------------------------------
+# 5. PLAYER FEED chart + AGENT FLOW — 68/32 split (nodes 21:991, 21:1034)
+# ---------------------------------------------------------------------------
+
+comp_volumes = [
+    ("Comp I", simulator.get("total_volume", 0)),
+    ("Comp II", s1.get("total", {}).get("total_volume", 0)),
+    ("Comp III", s2.get("total", {}).get("total_volume", 0)),
+    ("Comp IV", yex_total),
+]
+dates = [
+    datetime(2025, 7, 1), datetime(2025, 9, 1),
+    datetime(2025, 11, 1), datetime(2026, 1, 1),
+    datetime.now(),
+]
+cumulative = [0]
+running = 0
+for _, vol in comp_volumes:
+    running += vol
+    cumulative.append(running)
+
+st.markdown('<div class="chart-row">', unsafe_allow_html=True)
+col_feed, col_agent = st.columns([68, 32])
+
+with col_feed:
+    st.markdown("""
+        <div class="section-hdr">
+            <div class="section-label">PLAYER FEED</div>
+            <div class="section-pill">COMPOSITED FEED</div>
+        </div>
+        <div class="section-title">Total Cumulative Volumes</div>
+        <div class="section-desc">All competition data composited into one feed, from July 2025 to now.</div>
+    """, unsafe_allow_html=True)
+
+    fig_feed = go.Figure()
+    fig_feed.add_trace(go.Scatter(
+        x=dates, y=cumulative,
+        mode="lines", name="Cumulative Volume",
+        line=dict(width=2.5, color="#00C950"),
+        fill="tozeroy", fillcolor="rgba(0, 201, 80, 0.06)",
+    ))
+    for i, (label, _) in enumerate(comp_volumes):
+        fig_feed.add_vline(x=dates[i + 1], line_width=1, line_dash="dash", line_color="#D8D2D8")
+        fig_feed.add_annotation(
+            x=dates[i + 1], y=cumulative[i + 1],
+            text=label, showarrow=False, yshift=15,
+            font=dict(size=10, color="#1B1B1F", family="Inter"),
+        )
+    fig_feed.update_layout(
+        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(family="Inter, sans-serif", color="#1B1B1F", size=12),
+        xaxis=dict(gridcolor="#F7F2EA", linecolor="#D8D2D8", title="", zeroline=False),
+        yaxis=dict(gridcolor="#F7F2EA", linecolor="#D8D2D8", title="", tickprefix="$", tickformat=",.0f", zeroline=False),
+        height=240, margin=dict(l=60, r=16, t=8, b=36),
+        showlegend=False, hovermode="x unified",
+    )
+    st.plotly_chart(fig_feed, use_container_width=True, config={"displayModeBar": False})
+
+with col_agent:
+    st.markdown(f"""
+    <div class="side-card">
+        <div class="section-hdr">
+            <div class="section-label">AGENT FLOW</div>
+        </div>
+        <div class="section-title">Agent Trades</div>
+        <div class="section-desc">Number of agents active, volumes, markets, and orders filled value (USDYP).</div>
+        <div class="agent-grid">
+            <div class="agent-box">
+                <div class="agent-box-label">ACTIVE AGENTS</div>
+                <div class="agent-box-value">&mdash;</div>
+                <div class="agent-box-desc">currently in the composite feed</div>
+            </div>
+            <div class="agent-box">
+                <div class="agent-box-label">AGENT VOLUME</div>
+                <div class="agent-box-value">&mdash;</div>
+                <div class="agent-box-desc">all competitions combined</div>
+            </div>
+            <div class="agent-box">
+                <div class="agent-box-label">AGENT MARKETS</div>
+                <div class="agent-box-value">&mdash;</div>
+                <div class="agent-box-desc">unique markets touched</div>
+            </div>
+            <div class="agent-box">
+                <div class="agent-box-label">FILLED VALUE (USDYP)</div>
+                <div class="agent-box-value">&mdash;</div>
+                <div class="agent-box-desc">orders filled across agents</div>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+st.markdown('</div>', unsafe_allow_html=True)
+
+# ---------------------------------------------------------------------------
+# 6. NET PNL chart + FEED COMPOSITION — 68/32 split (nodes 21:1183, 21:1228)
+# ---------------------------------------------------------------------------
+
+s1_profit = s1.get("total", {}).get("net_profit", 0)
+s2_profit = s2.get("total", {}).get("net_profit", 0)
+pnl_dates = [
+    datetime(2025, 7, 1), datetime(2025, 9, 1),
+    datetime(2025, 11, 1), datetime(2026, 1, 1),
+    datetime.now(),
+]
+pnl_values = [0, 0, s1_profit, s1_profit + s2_profit, s1_profit + s2_profit]
+
+st.markdown('<div class="chart-row">', unsafe_allow_html=True)
+col_pnl, col_comp = st.columns([68, 32])
+
+with col_pnl:
+    st.markdown("""
+        <div class="section-hdr">
+            <div class="section-label">PLAYER FEED</div>
+            <div class="section-pill">ALL COMPETITIONS COMBINED</div>
+        </div>
+        <div class="section-title">Net PNL Over Time</div>
+        <div class="section-desc">Net PNL across all competitions composited into one continuous feed.</div>
+    """, unsafe_allow_html=True)
+
+    fig_pnl = go.Figure()
+    fig_pnl.add_trace(go.Scatter(
+        x=pnl_dates, y=pnl_values,
+        mode="lines", name="Net PNL",
+        line=dict(width=2.5, color="#00C950"),
+        fill="tozeroy", fillcolor="rgba(0, 201, 80, 0.06)",
+    ))
+    for i, label in enumerate(["Comp I", "Comp II", "Comp III", "Comp IV"]):
+        fig_pnl.add_vline(x=pnl_dates[i + 1], line_width=1, line_dash="dash", line_color="#D8D2D8")
+        fig_pnl.add_annotation(
+            x=pnl_dates[i + 1], y=pnl_values[i + 1],
+            text=label, showarrow=False, yshift=15,
+            font=dict(size=10, color="#1B1B1F", family="Inter"),
+        )
+    fig_pnl.update_layout(
+        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(family="Inter, sans-serif", color="#1B1B1F", size=12),
+        xaxis=dict(gridcolor="#F7F2EA", linecolor="#D8D2D8", title="", zeroline=False),
+        yaxis=dict(gridcolor="#F7F2EA", linecolor="#D8D2D8", title="", tickprefix="$", tickformat=",.0f", zeroline=False),
+        height=240, margin=dict(l=60, r=16, t=8, b=36),
+        showlegend=False, hovermode="x unified",
+    )
+    st.plotly_chart(fig_pnl, use_container_width=True, config={"displayModeBar": False})
+
+with col_comp:
+    st.markdown(f"""
+    <div class="side-card">
+        <div class="section-hdr">
+            <div class="section-label">FEED COMPOSITION</div>
+        </div>
+        <div class="section-title">Markets, venues, and seasons</div>
+        <div class="section-desc" style="margin-bottom:8px;">Competition coverage contributing to the composite player feed.</div>
+        <div class="fc-box">
+            <div class="fc-box-label">NUMBER OF MARKETS TRADED</div>
+            <div class="fc-box-value">{total_markets}</div>
+        </div>
+        <div class="fc-box">
+            <div class="fc-venue-title">Venue coverage</div>
+            <ul class="fc-venue-list">
+                <li>&bull; The Arena</li>
+                <li>&bull; MegaETH</li>
+                <li>&bull; Monad</li>
+                <li>&bull; Hyperliquid</li>
+            </ul>
+        </div>
+        <div class="fc-pills">
+            <div class="fc-pill">Comp I</div>
+            <div class="fc-pill">Comp II</div>
+            <div class="fc-pill">Comp III</div>
+            <div class="fc-pill">Comp IV</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+st.markdown('</div>', unsafe_allow_html=True)
+
+# ---------------------------------------------------------------------------
+# 7. COMPETITIONS section (node 21:1060)
+# ---------------------------------------------------------------------------
+
+st.markdown("""
+<div style="margin-top: 40px; padding-top: 24px;">
+    <div class="comp-section-label">COMPETITIONS</div>
+    <div class="comp-section-heading">Competition history</div>
+    <div class="comp-section-desc">
+        Each competition card shows period, format, number of days, venues, and top 3 wallet results. Replace placeholders with live values.
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+# Row 1: Comp I + Comp II
+comp_r1c1, comp_r1c2 = st.columns(2)
+# Row 2: Comp III + Comp IV
+comp_r2c1, comp_r2c2 = st.columns(2)
+
+comp_cols = [comp_r1c1, comp_r1c2, comp_r2c1, comp_r2c2]
+
+for idx, comp in enumerate(COMP_INFO):
+    with comp_cols[idx]:
+        wallet_html = ""
+        for rank in range(1, 4):
+            wallet_html += f"""
+            <div class="wallet-row">
+                <div class="wallet-rank">{rank}</div>
+                <div class="wallet-addr-cell">[wallet #{rank}]</div>
+                <div class="wallet-pnl">PNL [value]</div>
+            </div>
+            """
+
+        st.markdown(f"""
+        <div class="comp-card">
+            <div class="comp-card-top">
+                <div class="comp-card-left">
+                    <div class="yp-logo"><span class="yp-logo-text">Y P</span></div>
+                    <div class="comp-card-info">
+                        <div class="comp-card-name">{comp['name']}</div>
+                        <div class="comp-card-date">{comp['date']}</div>
+                    </div>
+                </div>
+                <div class="comp-venue-pill">{comp['venue']}</div>
+            </div>
+            <div class="comp-meta">
+                <div>
+                    <div class="comp-meta-label">DURATION</div>
+                    <div class="comp-meta-value">{comp['duration']}</div>
+                </div>
+                <div>
+                    <div class="comp-meta-label">LEADERBOARD</div>
+                    <div class="comp-meta-value">{comp['leaderboard']}</div>
+                </div>
+            </div>
+            <div class="comp-divider"></div>
+            <div class="comp-wallets-label">Top 3 wallets</div>
+            <div class="wallet-rows-container">
+                {wallet_html}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+# ---------------------------------------------------------------------------
+# 8. FOOTER (node 21:1182)
+# ---------------------------------------------------------------------------
+
+current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
+st.markdown(f"""
+<div class="page-footer">
+    Notes: swap bracketed placeholders with live metrics, wallet IDs, PNL, and day counts.
+    Charts are intentionally illustrative and keep the Nunchi institutional aesthetic.
+    <br>Last updated: {current_time}
 </div>
 """, unsafe_allow_html=True)

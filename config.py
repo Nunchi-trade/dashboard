@@ -59,3 +59,28 @@ TOKEN_DECIMALS = 6
 # Dashboard settings
 CACHE_TTL = 300  # 5 minutes
 DEFAULT_DAYS = 1  # Start with 1 day for fastest load
+
+
+# ============================================================================
+# LVR Defense Dashboard Config
+# ============================================================================
+
+import os
+
+# Paths to trade logs (local for dev, S3 URL for prod)
+DECISION_LOG_PATH = os.path.join(os.path.dirname(__file__), "data", "mainnet_decision_log.jsonl")
+CLEARING_LOG_PATH = os.path.join(os.path.dirname(__file__), "data", "mainnet_clearing_log.jsonl")
+
+# Fallback to testnet attestation logs for development
+FALLBACK_DECISION_LOG = os.path.expanduser(
+    "~/live-attestation/sessions/2026-02-19/decision_log.jsonl"
+)
+FALLBACK_CLEARING_LOG = os.path.expanduser(
+    "~/live-attestation/sessions/2026-02-19/clearing_log.jsonl"
+)
+
+# HLP vault address (Hyperliquid mainnet)
+HLP_VAULT_ADDRESS = "0xdfc24b077bc1425ad1dea75bcb6f8158e10df303"
+
+# Nunchi House Agent solver ID in clearing logs
+NUNCHI_SOLVER_ID = "solver-A"

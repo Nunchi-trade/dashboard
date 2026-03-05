@@ -1661,3 +1661,138 @@ def get_season_comparison() -> Dict:
         })
 
     return comparison
+
+
+# ============================================================================
+# HLP VAULT DATA (Hyperliquid Mainnet)
+# ============================================================================
+
+HLP_API_URL = "https://api.hyperliquid.xyz/info"
+
+
+def fetch_hlp_performance(days: int = 30) -> pd.DataFrame:
+    """
+    Fetch HLP vault historical performance from Hyperliquid API.
+
+    Uses the vaultDetails endpoint to get portfolio history (NAV over time).
+    Computes daily returns and cumulative return series.
+
+    Returns DataFrame with columns: [timestamp, nav, daily_return, cumulative_return]
+    Returns empty DataFrame on failure.
+    """
+    from config import HLP_VAULT_ADDRESS
+
+    cache_key = f"hlp_performance_{days}"
+    if cache_key in _cache:
+        return _cache[cache_key]
+
+    try:
+        resp = requests.post(
+            HLP_API_URL,
+            json={"type": "vaultDetails", "vaultAddress": HLP_VAULT_ADDRESS},
+            timeout=30,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+
+        # vaultDetails returns: { "portfolio": [...], ... }
+        # portfolio is a list of [label, data_dict] pairs, e.g.:
+        #   ["day", {"accountValueHistory": [[ts_ms, "val"], ...], "pnlHistory": [...]}]
+        # We extract accountValueHistory from all entries.
+        portfolio = data.get("portfolio", [])
+        if not portfolio:
+            print("HLP: no portfolio data in vaultDetails response")
+            return _hlp_empty_df()
+
+        rows = []
+        for entry in portfolio:
+            if not isinstance(entry, list) or len(entry) < 2:
+                continue
+            entry_data = entry[1] if isinstance(entry[1], dict) else {}
+            acct_history = entry_data.get("accountValueHistory", [])
+            for point in acct_history:
+                if isinstance(point, list) and len(point) >= 2:
+                    ts_ms = point[0]
+                    acct_val = point[1]
+                    rows.append({
+                        "timestamp": datetime.fromtimestamp(ts_ms / 1000),
+                        "nav": float(acct_val),
+                    })
+
+        if not rows:
+            return _hlp_empty_df()
+
+        df = pd.DataFrame(rows).sort_values("timestamp").reset_index(drop=True)
+
+        # Filter to requested window
+        cutoff = datetime.now() - timedelta(days=days)
+        df = df[df["timestamp"] >= cutoff].reset_index(drop=True)
+
+        if df.empty or df["nav"].iloc[0] == 0:
+            return _hlp_empty_df()
+
+        # Compute returns relative to first observation
+        base_nav = df["nav"].iloc[0]
+        df["cumulative_return"] = ((df["nav"] / base_nav) - 1) * 100
+        df["daily_return"] = df["nav"].pct_change().fillna(0) * 100
+
+        _cache[cache_key] = df
+        return df
+
+    except Exception as e:
+        print(f"Error fetching HLP vault performance: {e}")
+        return _hlp_empty_df()
+
+
+def fetch_hlp_pnl_history(days: int = 7) -> pd.DataFrame:
+    """
+    Alternative: use Hyperliquid's portfolio / clearinghouse state endpoint.
+
+    POST https://api.hyperliquid.xyz/info
+    Body: {"type": "userFills", "user": HLP_VAULT_ADDRESS}
+
+    Falls back to clearinghouseState for a snapshot-based approach.
+    Returns DataFrame with columns: [timestamp, account_value, pnl]
+    """
+    from config import HLP_VAULT_ADDRESS
+
+    cache_key = f"hlp_pnl_history_{days}"
+    if cache_key in _cache:
+        return _cache[cache_key]
+
+    try:
+        resp = requests.post(
+            HLP_API_URL,
+            json={"type": "clearinghouseState", "user": HLP_VAULT_ADDRESS},
+            timeout=30,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+
+        # Extract account value and margin summary
+        margin_summary = data.get("marginSummary", {})
+        account_value = float(margin_summary.get("accountValue", 0))
+        total_ntl_pos = float(margin_summary.get("totalNtlPos", 0))
+
+        if account_value <= 0:
+            return pd.DataFrame()
+
+        # Single snapshot - build a minimal DataFrame
+        df = pd.DataFrame([{
+            "timestamp": datetime.now(),
+            "account_value": account_value,
+            "pnl": float(margin_summary.get("totalUnrealizedPnl", 0)),
+            "total_ntl_pos": total_ntl_pos,
+        }])
+
+        _cache[cache_key] = df
+        return df
+
+    except Exception as e:
+        print(f"Error fetching HLP PnL history: {e}")
+        return pd.DataFrame()
+
+
+def _hlp_empty_df() -> pd.DataFrame:
+    """Return an empty DataFrame with the expected HLP columns."""
+    return pd.DataFrame(columns=["timestamp", "nav", "daily_return", "cumulative_return"])
