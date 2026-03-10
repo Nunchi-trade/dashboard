@@ -155,6 +155,19 @@ export interface PlayerMarket {
   oi: number;
 }
 
+export interface ChartPoint {
+  date: string;
+  value: number;
+}
+
+export interface CompetitionData {
+  name: string;
+  date: string;
+  duration: string;
+  venue: string;
+  players: { wallet: string; pnl: string }[];
+}
+
 export interface DerivedMetrics {
   // House
   totalMembers: number;
@@ -166,4 +179,9 @@ export interface DerivedMetrics {
   cumulativeVolume: number;
   dayVolume: number;
   playerMarkets: PlayerMarket[];
+  // Charts
+  volumeChart: ChartPoint[];
+  pnlChart: ChartPoint[];
+  // Competitions
+  competitions: CompetitionData[];
 }

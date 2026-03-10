@@ -1,13 +1,14 @@
-import { useState } from "react";
 import type { GetServerSideProps } from "next";
 import Head from "next/head";
 import type { DashboardData, DerivedMetrics } from "@/lib/types";
 import { deriveMetrics } from "@/lib/api";
 import Navbar from "@/components/Navbar";
 import PageHeader from "@/components/PageHeader";
-import TabToggle from "@/components/TabToggle";
 import HousePanel from "@/components/HousePanel";
 import PlayersPanel from "@/components/PlayersPanel";
+import SectionHeader from "@/components/SectionHeader";
+import VolumeChart from "@/components/VolumeChart";
+import CompetitionCard from "@/components/CompetitionCard";
 
 interface HomeProps {
   metrics: DerivedMetrics;
@@ -34,6 +35,9 @@ export const getServerSideProps: GetServerSideProps<HomeProps> = async () => {
           cumulativeVolume: 0,
           dayVolume: 0,
           playerMarkets: [],
+          volumeChart: [],
+          pnlChart: [],
+          competitions: [],
         },
       },
     };
@@ -41,8 +45,6 @@ export const getServerSideProps: GetServerSideProps<HomeProps> = async () => {
 };
 
 export default function Home({ metrics }: HomeProps) {
-  const [activeTab, setActiveTab] = useState<"house" | "players">("house");
-
   return (
     <>
       <Head>
@@ -54,14 +56,11 @@ export default function Home({ metrics }: HomeProps) {
       <div className="min-h-screen bg-background">
         <Navbar />
 
-        <main className="max-w-[1217px] mx-auto px-6 md:px-12 pt-8 pb-4">
+        <main className="max-w-[1217px] mx-auto px-6 md:px-12 pt-8 pb-16">
           <PageHeader />
 
-          <div className="mt-6">
-            <TabToggle active={activeTab} onChange={setActiveTab} />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+          {/* House + Players cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
             <HousePanel
               totalMembers={metrics.totalMembers}
               totalCapital={metrics.totalHouseCapital}
@@ -74,6 +73,43 @@ export default function Home({ metrics }: HomeProps) {
               dayVolume={metrics.dayVolume}
               markets={metrics.playerMarkets}
             />
+          </div>
+
+          {/* Player Activity section */}
+          <div className="mt-12">
+            <SectionHeader
+              badge="COVERAGE"
+              title="Player Activity"
+              description="Current stats include competitions across The Arena, MegaETH, Monad, and Hyperliquid."
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+            <VolumeChart
+              title="Total Cumulative Volumes"
+              dates={metrics.volumeChart.map((p) => p.date)}
+              values={metrics.volumeChart.map((p) => p.value)}
+            />
+            <VolumeChart
+              title="Net PnL, Over Time"
+              dates={metrics.pnlChart.map((p) => p.date)}
+              values={metrics.pnlChart.map((p) => p.value)}
+            />
+          </div>
+
+          {/* Competitions section */}
+          <div className="mt-12">
+            <SectionHeader
+              badge="COMPETITIONS RESULTS"
+              title="Top Competitive Performances"
+              description="Recent competition results across House venues."
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+            {metrics.competitions.map((comp) => (
+              <CompetitionCard key={comp.name} competition={comp} />
+            ))}
           </div>
         </main>
       </div>
