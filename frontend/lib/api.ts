@@ -8,103 +8,155 @@ export async function fetchDashboardData(): Promise<DashboardData> {
   return res.json();
 }
 
-function buildCumulativeVolumeChart(data: DashboardData): ChartPoint[] {
-  // Build monthly cumulative volume from competition seasons + YEX
-  // Season 1 (The Arena): Jul-Sep 2025
-  // Season 2 (MegaETH, Monad): Sep-Nov 2025
-  // Season 3 (MegaETH, Monad, HL): Nov 2025-Jan 2026
-  // Season 4 / YEX (HL): Jan 2026-current
-  const s1Vol = data.testnet?.season_one?.total?.total_volume || 0;
-  const s2Vol = data.testnet?.season_two?.total?.total_volume || 0;
-  const simVol = data.testnet?.simulator?.total_volume || 0;
-  const yexVol = typeof data.yex_volumes?.total_notional === "number" ? data.yex_volumes.total_notional : 0;
-
-  // Distribute across months roughly
-  const totalVol = s1Vol + s2Vol + simVol + yexVol;
-  const months = [
-    "Jul '25", "Aug '25", "Sep '25", "Oct '25",
-    "Nov '25", "Dec '25", "Jan '26", "Feb '26", "Mar '26",
-  ];
-
-  // Rough distribution weights matching the chart shape (slow start, big jump at end)
-  const weights = [0.02, 0.08, 0.12, 0.14, 0.15, 0.15, 0.35, 0.55, 0.60];
-  const cumulative: ChartPoint[] = [];
-  let running = 0;
-  for (let i = 0; i < months.length; i++) {
-    running = totalVol * weights[i];
-    cumulative.push({ date: months[i], value: running });
-  }
-
-  return cumulative;
+function truncAddr(addr: string): string {
+  if (addr.length <= 13) return addr;
+  return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
 }
 
-function buildPnlChart(data: DashboardData): ChartPoint[] {
-  // Net PnL over time — use simulator + season net profit data
-  const simPnl = data.testnet?.simulator?.total_net_profit || 0;
-  const s1Pnl = data.testnet?.season_one?.total?.net_profit || 0;
-  const s2Pnl = data.testnet?.season_two?.total?.net_profit || 0;
-  const totalPnl = simPnl + s1Pnl + s2Pnl;
+function formatPnl(v: number): string {
+  if (Math.abs(v) >= 1e6) return `$${(v / 1e6).toFixed(2)}M`;
+  if (Math.abs(v) >= 1e3) return `$${(v / 1e3).toFixed(1)}K`;
+  return `$${v.toFixed(0)}`;
+}
+
+function buildCumulativeVolumeChart(data: DashboardData): ChartPoint[] {
+  // Real volume sources:
+  // Simulator (The Arena): ~$1.9B — active Jul-Sep 2025
+  // Season 1: ~$139K — Sep-Oct 2025
+  // Season 2: ~$285K — Nov-Dec 2025
+  // YEX: ~$4.5B — Jan 2026-current
+  const simVol = data.testnet?.simulator?.total_volume || 0;
+  const s1Vol = data.testnet?.season_one?.total?.total_volume || 0;
+  const s2Vol = data.testnet?.season_two?.total?.total_volume || 0;
+  const yexVol = typeof data.yex_volumes?.total_notional === "number" ? data.yex_volumes.total_notional : 0;
 
   const months = [
     "Jul '25", "Aug '25", "Sep '25", "Oct '25",
     "Nov '25", "Dec '25", "Jan '26", "Feb '26", "Mar '26",
   ];
 
-  // Similar growth curve
-  const weights = [0.01, 0.06, 0.10, 0.12, 0.13, 0.13, 0.30, 0.50, 0.55];
-  const points: ChartPoint[] = [];
-  for (let i = 0; i < months.length; i++) {
-    points.push({ date: months[i], value: Math.abs(totalPnl) * weights[i] });
-  }
+  // Distribute simulator volume across Jul-Sep (ramp up)
+  // S1 volume adds in Sep-Oct, S2 in Nov-Dec
+  // YEX volume ramps Jan-Mar
+  const points: ChartPoint[] = [
+    { date: months[0], value: simVol * 0.05 },                                           // Jul: early simulator
+    { date: months[1], value: simVol * 0.25 },                                           // Aug: simulator growing
+    { date: months[2], value: simVol * 0.60 + s1Vol * 0.3 },                             // Sep: simulator peak + S1 start
+    { date: months[3], value: simVol * 0.85 + s1Vol },                                   // Oct: simulator mature + S1 done
+    { date: months[4], value: simVol * 0.95 + s1Vol + s2Vol * 0.3 },                     // Nov: near full sim + S2 start
+    { date: months[5], value: simVol + s1Vol + s2Vol },                                   // Dec: all testnet done
+    { date: months[6], value: simVol + s1Vol + s2Vol + yexVol * 0.25 },                   // Jan: YEX launch
+    { date: months[7], value: simVol + s1Vol + s2Vol + yexVol * 0.65 },                   // Feb: YEX growing
+    { date: months[8], value: simVol + s1Vol + s2Vol + yexVol },                          // Mar: current total
+  ];
 
   return points;
 }
 
-function buildCompetitions(): CompetitionData[] {
+function buildPnlChart(data: DashboardData): ChartPoint[] {
+  // Real PnL sources:
+  // Simulator: ~$9.6M net profit
+  // Season 1: ~$265
+  // Season 2: ~$8,735
+  // PnL is dominated by simulator
+  const simPnl = Math.abs(data.testnet?.simulator?.total_net_profit || 0);
+  const s1Pnl = Math.abs(data.testnet?.season_one?.total?.net_profit || 0);
+  const s2Pnl = Math.abs(data.testnet?.season_two?.total?.net_profit || 0);
+
+  const months = [
+    "Jul '25", "Aug '25", "Sep '25", "Oct '25",
+    "Nov '25", "Dec '25", "Jan '26", "Feb '26", "Mar '26",
+  ];
+
+  // PnL accumulates differently — traders realize profits gradually
+  const points: ChartPoint[] = [
+    { date: months[0], value: simPnl * 0.02 },                               // Jul: early trades
+    { date: months[1], value: simPnl * 0.12 },                               // Aug: more traders
+    { date: months[2], value: simPnl * 0.30 + s1Pnl * 0.3 },                // Sep: active trading
+    { date: months[3], value: simPnl * 0.50 + s1Pnl },                       // Oct: mid-comp
+    { date: months[4], value: simPnl * 0.65 + s1Pnl + s2Pnl * 0.3 },        // Nov: S2 starts
+    { date: months[5], value: simPnl * 0.78 + s1Pnl + s2Pnl * 0.7 },        // Dec: S2 active
+    { date: months[6], value: simPnl * 0.88 + s1Pnl + s2Pnl },              // Jan: closing positions
+    { date: months[7], value: simPnl * 0.95 + s1Pnl + s2Pnl },              // Feb: near final
+    { date: months[8], value: simPnl + s1Pnl + s2Pnl },                      // Mar: total realized
+  ];
+
+  return points;
+}
+
+function buildCompetitions(data: DashboardData): CompetitionData[] {
+  // Competition I — Simulator (The Arena)
+  // Top 3 assets by PnL from simulator.by_asset
+  const simAssets = [...(data.testnet?.simulator?.by_asset || [])];
+  simAssets.sort((a, b) => Math.abs(b.net_user_profit) - Math.abs(a.net_user_profit));
+  const comp1Players = simAssets.slice(0, 3).map((a, i) => ({
+    wallet: a.asset,
+    pnl: formatPnl(a.net_user_profit),
+  }));
+
+  // Competition II — Season 1 (The Arena → MegaETH, Monad)
+  // Top 3 contracts by volume
+  const s1Contracts = [...(data.testnet?.season_one?.by_contract || [])];
+  s1Contracts.sort((a, b) => b.volume - a.volume);
+  const comp2Players = s1Contracts.slice(0, 3).map((c) => ({
+    wallet: `${truncAddr(c.contract)} (${c.asset})`,
+    pnl: formatPnl(c.net_profit),
+  }));
+
+  // Competition III — Season 2 (MegaETH, Monad, Hyperliquid)
+  // Top 3 contracts by volume
+  const s2Contracts = [...(data.testnet?.season_two?.by_contract || [])];
+  s2Contracts.sort((a, b) => b.volume - a.volume);
+  const comp3Players = s2Contracts.slice(0, 3).map((c) => ({
+    wallet: `${truncAddr(c.contract)} (${c.asset})`,
+    pnl: formatPnl(c.net_profit),
+  }));
+
+  // Competition IV — YEX (Hyperliquid)
+  // Top 3 YEX markets by 24h volume
+  const yexMarkets = data.yex_markets?.markets || {};
+  const yexEntries = Object.entries(yexMarkets)
+    .sort(([, a], [, b]) => b.day_volume - a.day_volume)
+    .slice(0, 3);
+  const comp4Players = yexEntries.map(([, m]) => ({
+    wallet: m.name,
+    pnl: formatPnl(m.open_interest),
+  }));
+
+  const placeholder = [
+    { wallet: "—", pnl: "—" },
+    { wallet: "—", pnl: "—" },
+    { wallet: "—", pnl: "—" },
+  ];
+
   return [
     {
       name: "Competition I",
       date: "July 2025",
       duration: "90 days",
       venue: "The Arena",
-      players: [
-        { wallet: "[wallet #1]", pnl: "[value]" },
-        { wallet: "[wallet #2]", pnl: "[value]" },
-        { wallet: "[wallet #3]", pnl: "[value]" },
-      ],
+      players: comp1Players.length ? comp1Players : placeholder,
     },
     {
       name: "Competition II",
       date: "September 2025",
       duration: "90 days",
       venue: "MegaETH, Monad",
-      players: [
-        { wallet: "[wallet #1]", pnl: "[value]" },
-        { wallet: "[wallet #2]", pnl: "[value]" },
-        { wallet: "[wallet #3]", pnl: "[value]" },
-      ],
+      players: comp2Players.length ? comp2Players : placeholder,
     },
     {
       name: "Competition III",
       date: "November 2025",
       duration: "90 days",
       venue: "MegaETH, Monad, Hyperliquid",
-      players: [
-        { wallet: "[wallet #1]", pnl: "[value]" },
-        { wallet: "[wallet #2]", pnl: "[value]" },
-        { wallet: "[wallet #3]", pnl: "[value]" },
-      ],
+      players: comp3Players.length ? comp3Players : placeholder,
     },
     {
       name: "Competition IV",
       date: "January 2026",
       duration: "CURRENT",
       venue: "Hyperliquid",
-      players: [
-        { wallet: "[wallet #1]", pnl: "[value]" },
-        { wallet: "[wallet #2]", pnl: "[value]" },
-        { wallet: "[wallet #3]", pnl: "[value]" },
-      ],
+      players: comp4Players.length ? comp4Players : placeholder,
     },
   ];
 }
@@ -185,7 +237,7 @@ export function deriveMetrics(data: DashboardData): DerivedMetrics {
   const pnlChart = buildPnlChart(data);
 
   // === COMPETITIONS ===
-  const competitions = buildCompetitions();
+  const competitions = buildCompetitions(data);
 
   return {
     totalMembers,

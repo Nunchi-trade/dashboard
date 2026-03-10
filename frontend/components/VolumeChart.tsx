@@ -29,7 +29,7 @@ export default function VolumeChart({ title, dates, values }: VolumeChartProps) 
           ]}
           layout={{
             autosize: true,
-            margin: { l: 50, r: 10, t: 10, b: 50 },
+            margin: { l: 60, r: 10, t: 10, b: 50 },
             xaxis: {
               showgrid: true,
               gridcolor: "rgba(216,210,216,0.4)",
