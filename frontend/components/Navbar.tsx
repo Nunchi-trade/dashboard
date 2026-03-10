@@ -17,7 +17,7 @@ export default function Navbar() {
           </svg>
           Back to Perps Trading
         </a>
-        <a href="#" className="flex items-center gap-1 text-xs text-desc hover:underline">
+        <a href="https://docs.nunchi.trade/chips-chips" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-desc hover:underline">
           How to earn cHIPs
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-60">
             <path d="M7 17L17 7M17 7H7M17 7v10" />
