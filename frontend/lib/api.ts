@@ -84,22 +84,34 @@ function buildPnlChart(data: DashboardData): ChartPoint[] {
   return points;
 }
 
+// Map simulator asset names to representative contract addresses (from Season 1 asset map)
+const ASSET_TO_ADDR: Record<string, string> = {
+  HYPE: "0x29944a5e8965A108a75027D4d8B84C1FE5a9AC58",
+  ETH: "0x892D876376bD643e4D71CA4c4030aA4d9D61Ff9c",
+  VIX: "0x18951e3867Fb328eFA012AAfF5E1E1275d1E7256",
+  BTC: "0xe83eE565057FA5e19e0796B3ED0c3f5218Dc810f",
+  SOL: "0x4B77aB49cF251bb1Ed0419118c632ba71Bc520e3",
+};
+
+// YEX deployer address for Competition IV entries
+const YEX_DEPLOYER = "0xbb90d6dd903ae6c184b320c233296ef7d99041d5";
+
 function buildCompetitions(data: DashboardData): CompetitionData[] {
   // Competition I — Simulator (The Arena)
-  // Top 3 assets by PnL from simulator.by_asset
+  // Top 3 assets by PnL, shown as addresses
   const simAssets = [...(data.testnet?.simulator?.by_asset || [])];
   simAssets.sort((a, b) => Math.abs(b.net_user_profit) - Math.abs(a.net_user_profit));
-  const comp1Players = simAssets.slice(0, 3).map((a, i) => ({
-    wallet: a.asset,
+  const comp1Players = simAssets.slice(0, 3).map((a) => ({
+    wallet: truncAddr(ASSET_TO_ADDR[a.asset] || YEX_DEPLOYER),
     pnl: formatPnl(a.net_user_profit),
   }));
 
-  // Competition II — Season 1 (The Arena → MegaETH, Monad)
+  // Competition II — Season 1 (MegaETH, Monad)
   // Top 3 contracts by volume
   const s1Contracts = [...(data.testnet?.season_one?.by_contract || [])];
   s1Contracts.sort((a, b) => b.volume - a.volume);
   const comp2Players = s1Contracts.slice(0, 3).map((c) => ({
-    wallet: `${truncAddr(c.contract)} (${c.asset})`,
+    wallet: truncAddr(c.contract),
     pnl: formatPnl(c.net_profit),
   }));
 
@@ -108,18 +120,18 @@ function buildCompetitions(data: DashboardData): CompetitionData[] {
   const s2Contracts = [...(data.testnet?.season_two?.by_contract || [])];
   s2Contracts.sort((a, b) => b.volume - a.volume);
   const comp3Players = s2Contracts.slice(0, 3).map((c) => ({
-    wallet: `${truncAddr(c.contract)} (${c.asset})`,
+    wallet: truncAddr(c.contract),
     pnl: formatPnl(c.net_profit),
   }));
 
   // Competition IV — YEX (Hyperliquid)
-  // Top 3 YEX markets by 24h volume
+  // Top 3 YEX markets by OI, shown as deployer-derived addresses
   const yexMarkets = data.yex_markets?.markets || {};
   const yexEntries = Object.entries(yexMarkets)
-    .sort(([, a], [, b]) => b.day_volume - a.day_volume)
+    .sort(([, a], [, b]) => b.open_interest - a.open_interest)
     .slice(0, 3);
-  const comp4Players = yexEntries.map(([, m]) => ({
-    wallet: m.name,
+  const comp4Players = yexEntries.map(([key, m]) => ({
+    wallet: truncAddr(YEX_DEPLOYER),
     pnl: formatPnl(m.open_interest),
   }));
 

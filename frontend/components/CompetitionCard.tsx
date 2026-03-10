@@ -51,17 +51,13 @@ export default function CompetitionCard({ competition }: CompetitionCardProps) {
         <div className="border border-border-60 rounded-xl p-[13px] flex flex-col gap-2">
           {competition.players.map((p, i) => (
             <div key={i} className="flex items-center gap-2">
-              {i === 0 && (
-                <span className="w-5 h-5 flex items-center justify-center rounded-full bg-background border border-border text-[10px] font-bold text-dark">
-                  1
-                </span>
-              )}
-              <span
-                className={`flex-1 text-xs text-desc leading-4 ${i > 0 ? "pl-7" : ""}`}
-              >
+              <span className="w-5 h-5 flex items-center justify-center rounded-full bg-background border border-border text-[10px] font-bold text-dark shrink-0">
+                {i + 1}
+              </span>
+              <span className="flex-1 text-xs text-desc leading-4 truncate">
                 {p.wallet}
               </span>
-              <span className="text-xs text-muted leading-4">
+              <span className="text-xs text-muted leading-4 shrink-0">
                 PNL {p.pnl}
               </span>
             </div>
