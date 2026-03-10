@@ -3,8 +3,14 @@ import dynamic from "next/dynamic";
 
 const Plot = dynamic(() => import("react-plotly.js"), { ssr: false });
 
+interface CompPnl {
+  label: string;
+  volume: number;
+  netProfit: number;
+}
+
 interface NetPnlChartProps {
-  compVolumes: { label: string; volume: number }[];
+  compPnls: CompPnl[];
 }
 
 const MONTHS = [
@@ -12,30 +18,32 @@ const MONTHS = [
   "Dec '25", "Jan '26", "Feb '26", "Mar '26",
 ];
 
-export default function NetPnlChart({ compVolumes }: NetPnlChartProps) {
+export default function NetPnlChart({ compPnls }: NetPnlChartProps) {
   const { x, y, annotations } = useMemo(() => {
-    // Generate a proxy PnL line based on comp volumes
+    // Map competitions to their approximate month indices
+    const compMonthMap = [0, 2, 4, 6]; // Jul, Sep, Nov, Jan
     const pnl: number[] = [];
     let running = 0;
-    const step = Math.max(1, Math.floor(MONTHS.length / Math.max(compVolumes.length, 1)));
 
     for (let i = 0; i < MONTHS.length; i++) {
-      const compIdx = Math.floor(i / step);
-      if (compIdx < compVolumes.length) {
-        // Simulate PnL as small fraction of volume with some variance
-        const delta = compVolumes[compIdx].volume * 0.002 * (0.5 + Math.sin(i) * 0.5);
-        running += delta / step;
+      // Check if a competition starts at this month
+      for (let c = 0; c < compPnls.length; c++) {
+        if (compMonthMap[c] === i) {
+          running += compPnls[c].netProfit;
+        }
       }
       pnl.push(running);
     }
 
-    const annots = compVolumes.map((c, idx) => ({
-      x: MONTHS[Math.min(idx * step, MONTHS.length - 1)],
+    const annots = compPnls.map((c, idx) => ({
+      x: MONTHS[Math.min(compMonthMap[idx], MONTHS.length - 1)],
       label: c.label,
     }));
 
     return { x: MONTHS, y: pnl, annotations: annots };
-  }, [compVolumes]);
+  }, [compPnls]);
+
+  const totalProfit = compPnls.reduce((s, c) => s + c.netProfit, 0);
 
   return (
     <div className="rounded-2xl border border-border bg-white p-6 space-y-4">
@@ -53,7 +61,9 @@ export default function NetPnlChart({ compVolumes }: NetPnlChartProps) {
           Net PnL, Over Time
         </h2>
         <p className="text-xs text-desc leading-relaxed">
-          Net PnL across all competitions composited into one continuous feed.
+          Cumulative net user profit: <span className={totalProfit >= 0 ? "text-green font-medium" : "text-red-500 font-medium"}>
+            {totalProfit >= 0 ? "+" : ""}${totalProfit.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+          </span>
         </p>
       </div>
 

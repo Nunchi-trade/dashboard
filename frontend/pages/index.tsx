@@ -43,6 +43,9 @@ export const getServerSideProps: GetServerSideProps<HomeProps> = async () => {
           totalWallets: 0,
           totalMarkets: 0,
           yexTotal: 0,
+          totalTradesPlaced: 0,
+          totalNetProfit: 0,
+          assetList: [],
           competitions: [],
         },
       },
@@ -56,6 +59,12 @@ export default function Home({ metrics }: HomeProps) {
   const compVolumes = metrics.competitions.map((c) => ({
     label: c.name.replace("COMPETITION ", "Comp "),
     volume: c.volume,
+  }));
+
+  const compPnls = metrics.competitions.map((c) => ({
+    label: c.name.replace("COMPETITION ", "Comp "),
+    volume: c.volume,
+    netProfit: c.netProfit,
   }));
 
   return (
@@ -88,6 +97,8 @@ export default function Home({ metrics }: HomeProps) {
               totalVolume={metrics.totalVolume}
               totalWallets={metrics.totalWallets}
               totalMarkets={metrics.totalMarkets}
+              totalTradesPlaced={metrics.totalTradesPlaced}
+              totalNetProfit={metrics.totalNetProfit}
             />
           </div>
 
@@ -99,8 +110,11 @@ export default function Home({ metrics }: HomeProps) {
 
           {/* Net PnL Chart + Feed Composition */}
           <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-6 mt-8">
-            <NetPnlChart compVolumes={compVolumes} />
-            <FeedComposition totalMarkets={metrics.totalMarkets} />
+            <NetPnlChart compPnls={compPnls} />
+            <FeedComposition
+              totalMarkets={metrics.totalMarkets}
+              assetList={metrics.assetList}
+            />
           </div>
 
           {/* Competition History */}

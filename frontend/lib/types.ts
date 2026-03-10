@@ -59,6 +59,14 @@ export type Hip3Volumes = Record<string, Hip3PairVolume | number> & {
   total_notional: number;
 };
 
+export interface SimulatorAsset {
+  asset: string;
+  volume: number;
+  trades_placed: number;
+  net_user_profit: number;
+  total_users: number;
+}
+
 export interface SeasonContract {
   contract: string;
   chain: number;
@@ -73,13 +81,15 @@ export interface SeasonContract {
 
 export interface SeasonData {
   by_contract?: SeasonContract[];
-  by_asset?: Record<string, { volume: number; users: number }>;
+  by_asset?: Record<string, { volume: number; users: number; net_profit?: number }>;
+  by_chain?: Record<string, { name: string; users: number; volume: number; avg_per_user: number }>;
   total?: {
     total_volume: number;
     total_users: number;
-    total_contracts: number;
-    avg_volume_per_user: number;
-    total_net_profit: number;
+    avg_per_user: number;
+    net_profit: number;
+    avg_time_to_close_hours: number;
+    avg_time_to_close_formatted: string;
   };
 }
 
@@ -88,6 +98,9 @@ export interface TestnetData {
     total_users: number;
     total_volume: number;
     avg_volume_per_user: number;
+    by_asset?: SimulatorAsset[];
+    total_trades_placed?: number;
+    total_net_profit?: number;
   };
   season_one: SeasonData;
   season_two: SeasonData;
@@ -120,6 +133,9 @@ export interface CompetitionInfo {
   leaderboard: string;
   duration: string;
   volume: number;
+  netProfit: number;
+  tradesPlaced: number;
+  assets: string[];
 }
 
 export interface DerivedMetrics {
@@ -134,5 +150,8 @@ export interface DerivedMetrics {
   totalWallets: number;
   totalMarkets: number;
   yexTotal: number;
+  totalTradesPlaced: number;
+  totalNetProfit: number;
+  assetList: string[];
   competitions: CompetitionInfo[];
 }

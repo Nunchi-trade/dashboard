@@ -4,16 +4,22 @@ interface PlayersPanelProps {
   totalVolume: number;
   totalWallets: number;
   totalMarkets: number;
+  totalTradesPlaced: number;
+  totalNetProfit: number;
 }
 
 function formatB(value: number): string {
-  return `$${(value / 1e9).toFixed(2)}B`;
+  if (value >= 1e9) return `$${(value / 1e9).toFixed(2)}B`;
+  if (value >= 1e6) return `$${(value / 1e6).toFixed(1)}M`;
+  return `$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 }
 
 export default function PlayersPanel({
   totalVolume,
   totalWallets,
   totalMarkets,
+  totalTradesPlaced,
+  totalNetProfit,
 }: PlayersPanelProps) {
   return (
     <div className="rounded-2xl border border-border bg-white p-6 space-y-5">
@@ -56,12 +62,14 @@ export default function PlayersPanel({
           <p className="text-sm text-muted">{totalMarkets.toLocaleString()}</p>
         </div>
         <div>
-          <p className="text-xs font-semibold text-dark">Orders filled value</p>
-          <p className="text-sm text-muted">$0</p>
+          <p className="text-xs font-semibold text-dark">Trades placed</p>
+          <p className="text-sm text-muted">{totalTradesPlaced.toLocaleString()}</p>
         </div>
         <div>
-          <p className="text-xs font-semibold text-dark">Active agents</p>
-          <p className="text-sm text-muted">0</p>
+          <p className="text-xs font-semibold text-dark">Net user profit</p>
+          <p className={`text-sm ${totalNetProfit >= 0 ? "text-green" : "text-red-500"}`}>
+            {totalNetProfit >= 0 ? "+" : ""}${totalNetProfit.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+          </p>
         </div>
         <div>
           <p className="text-xs font-semibold text-dark">

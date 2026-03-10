@@ -38,29 +38,46 @@ export function deriveMetrics(data: DashboardData): DerivedMetrics {
   const totalVolume = totals.total_volume + yexTotal;
   const totalWallets = totals.total_users;
 
-  // Markets traded
-  let totalMarkets = 0;
-  if (data.testnet) {
-    const s1Assets = data.testnet.season_one?.by_asset || {};
-    const s2Assets = data.testnet.season_two?.by_asset || {};
-    const allAssets = new Set([
-      ...Object.keys(s1Assets),
-      ...Object.keys(s2Assets),
-      "US3M",
-      "VXX",
-      "BTCSWP",
-    ]);
-    totalMarkets = allAssets.size;
-  }
-
-  // Competition data
+  // Simulator data
   const simulator = data.testnet?.simulator || {
     total_users: 0,
     total_volume: 0,
   };
+  const simByAsset = data.testnet?.simulator?.by_asset || [];
+  const simTradesPlaced = data.testnet?.simulator?.total_trades_placed || 0;
+  const simNetProfit = data.testnet?.simulator?.total_net_profit || 0;
+  const simAssets = simByAsset.map((a) => a.asset);
+
+  // Season data
   const s1 = data.testnet?.season_one || {};
   const s2 = data.testnet?.season_two || {};
+  const s1NetProfit = s1.total?.net_profit || 0;
+  const s2NetProfit = s2.total?.net_profit || 0;
+  const s1Assets = Object.keys(s1.by_asset || {});
+  const s2Assets = Object.keys(s2.by_asset || {});
 
+  // All unique assets across all competitions
+  const allAssets = new Set([
+    ...simAssets,
+    ...s1Assets,
+    ...s2Assets,
+    "US3M",
+    "VXX",
+    "BTCSWP",
+  ]);
+  const assetList = Array.from(allAssets).sort();
+  const totalMarkets = allAssets.size;
+
+  // Total trades placed across all competitions
+  // Seasons don't have trades_placed in the API, so we use contract counts as proxy
+  const s1Contracts = s1.by_contract?.length || 0;
+  const s2Contracts = s2.by_contract?.length || 0;
+  const totalTradesPlaced = simTradesPlaced;
+
+  // Total net profit across all competitions
+  const totalNetProfit = simNetProfit + s1NetProfit + s2NetProfit;
+
+  // Competition data
   const competitions: CompetitionInfo[] = [
     {
       num: "I",
@@ -70,6 +87,9 @@ export function deriveMetrics(data: DashboardData): DerivedMetrics {
       leaderboard: "The Arena",
       duration: `${simulator.total_users} users`,
       volume: simulator.total_volume,
+      netProfit: simNetProfit,
+      tradesPlaced: simTradesPlaced,
+      assets: simAssets,
     },
     {
       num: "II",
@@ -79,6 +99,9 @@ export function deriveMetrics(data: DashboardData): DerivedMetrics {
       leaderboard: "MegaETH, Monad",
       duration: `${s1.total?.total_users || 0} users`,
       volume: s1.total?.total_volume || 0,
+      netProfit: s1NetProfit,
+      tradesPlaced: s1Contracts,
+      assets: s1Assets,
     },
     {
       num: "III",
@@ -88,6 +111,9 @@ export function deriveMetrics(data: DashboardData): DerivedMetrics {
       leaderboard: "MegaETH, Monad, Hyperliquid",
       duration: `${s2.total?.total_users || 0} users`,
       volume: s2.total?.total_volume || 0,
+      netProfit: s2NetProfit,
+      tradesPlaced: s2Contracts,
+      assets: s2Assets,
     },
     {
       num: "IV",
@@ -97,6 +123,9 @@ export function deriveMetrics(data: DashboardData): DerivedMetrics {
       leaderboard: "Hyperliquid",
       duration: "YEX DEX",
       volume: yexTotal,
+      netProfit: 0,
+      tradesPlaced: 0,
+      assets: ["US3M", "VXX", "BTCSWP"],
     },
   ];
 
@@ -112,6 +141,9 @@ export function deriveMetrics(data: DashboardData): DerivedMetrics {
     totalWallets,
     totalMarkets,
     yexTotal,
+    totalTradesPlaced,
+    totalNetProfit,
+    assetList,
     competitions,
   };
 }

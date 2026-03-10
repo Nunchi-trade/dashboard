@@ -2,12 +2,13 @@ import React from "react";
 
 interface FeedCompositionProps {
   totalMarkets: number;
+  assetList: string[];
 }
 
 const venues = ["The Arena", "MegaETH", "Monad", "Hyperliquid"];
 const comps = ["Comp I", "Comp II", "Comp III", "Comp IV"];
 
-export default function FeedComposition({ totalMarkets }: FeedCompositionProps) {
+export default function FeedComposition({ totalMarkets, assetList }: FeedCompositionProps) {
   return (
     <div className="rounded-2xl border border-border bg-white p-6 space-y-5">
       <div className="space-y-1">
@@ -29,6 +30,20 @@ export default function FeedComposition({ totalMarkets }: FeedCompositionProps) 
         <p className="text-2xl font-semibold text-dark">
           {totalMarkets.toLocaleString()}
         </p>
+      </div>
+
+      <div className="space-y-2">
+        <p className="text-xs font-semibold text-dark">Assets</p>
+        <div className="flex flex-wrap gap-1.5">
+          {assetList.map((a) => (
+            <span
+              key={a}
+              className="rounded-full border border-border bg-background px-2.5 py-0.5 text-[10px] text-muted font-medium"
+            >
+              {a}
+            </span>
+          ))}
+        </div>
       </div>
 
       <div className="space-y-2">

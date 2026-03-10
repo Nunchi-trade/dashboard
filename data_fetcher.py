@@ -1439,10 +1439,28 @@ def get_testnet_analytics() -> Dict:
 
 def process_simulator_data(data: Dict) -> Dict:
     """Process simulator data from API."""
+    by_asset = []
+    total_trades = 0
+    total_net_profit = 0
+    for asset_data in data.get('byAsset', []):
+        trades = asset_data.get('trades_placed', 0)
+        profit = asset_data.get('net_user_profit', 0)
+        total_trades += trades
+        total_net_profit += profit
+        by_asset.append({
+            'asset': asset_data.get('asset', 'Unknown'),
+            'volume': asset_data.get('volume', 0),
+            'trades_placed': trades,
+            'net_user_profit': profit,
+            'total_users': asset_data.get('total_users', 0),
+        })
     return {
         'total_users': data.get('totalUsers', 0),
         'total_volume': data.get('totalVolume', 0) * 100,  # API returns in different scale
         'avg_volume_per_user': data.get('averageVolumePerUser', 0),
+        'by_asset': by_asset,
+        'total_trades_placed': total_trades,
+        'total_net_profit': total_net_profit,
     }
 
 
