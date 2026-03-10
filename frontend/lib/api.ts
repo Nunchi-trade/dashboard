@@ -107,21 +107,21 @@ function buildCompetitions(data: DashboardData): CompetitionData[] {
   }));
 
   // Competition II — Season 1 (MegaETH, Monad)
-  // Top 3 contracts by volume
+  // Top 3 contracts by volume — use volume as the metric (net_profit is mostly 0)
   const s1Contracts = [...(data.testnet?.season_one?.by_contract || [])];
   s1Contracts.sort((a, b) => b.volume - a.volume);
   const comp2Players = s1Contracts.slice(0, 3).map((c) => ({
     wallet: truncAddr(c.contract),
-    pnl: formatPnl(c.net_profit),
+    pnl: formatPnl(c.volume),
   }));
 
   // Competition III — Season 2 (MegaETH, Monad, Hyperliquid)
-  // Top 3 contracts by volume
+  // Top 3 contracts by volume — use volume as the metric
   const s2Contracts = [...(data.testnet?.season_two?.by_contract || [])];
   s2Contracts.sort((a, b) => b.volume - a.volume);
   const comp3Players = s2Contracts.slice(0, 3).map((c) => ({
     wallet: truncAddr(c.contract),
-    pnl: formatPnl(c.net_profit),
+    pnl: formatPnl(c.volume),
   }));
 
   // Competition IV — YEX (Hyperliquid)
