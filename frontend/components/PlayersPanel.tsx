@@ -1,82 +1,82 @@
 import React from "react";
+import type { PlayerMarket } from "@/lib/types";
 
 interface PlayersPanelProps {
-  totalVolume: number;
-  totalWallets: number;
-  totalMarkets: number;
-  totalTradesPlaced: number;
-  totalNetProfit: number;
+  totalPlayers: number;
+  cumulativeVolume: number;
+  dayVolume: number;
+  markets: PlayerMarket[];
 }
 
-function formatB(value: number): string {
+function formatV(value: number): string {
   if (value >= 1e9) return `$${(value / 1e9).toFixed(2)}B`;
   if (value >= 1e6) return `$${(value / 1e6).toFixed(1)}M`;
-  return `$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+  if (value >= 1e3) return `$${(value / 1e3).toFixed(1)}K`;
+  return `$${value.toFixed(0)}`;
 }
 
-export default function PlayersPanel({
-  totalVolume,
-  totalWallets,
-  totalMarkets,
-  totalTradesPlaced,
-  totalNetProfit,
-}: PlayersPanelProps) {
+function formatNum(value: number): string {
+  return `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+export default function PlayersPanel({ totalPlayers, cumulativeVolume, dayVolume, markets }: PlayersPanelProps) {
   return (
-    <div className="rounded-2xl border border-border bg-white p-6 space-y-5">
-      <div className="space-y-1">
-        <p className="text-xs uppercase tracking-wider font-semibold text-dark">
-          Players
-        </p>
-        <h2 className="text-sm font-normal text-dark">
-          Total Players
-        </h2>
-        <p className="text-xs text-desc leading-relaxed">
-          Aggregate wallets, volumes, markets, and agent flow across Competition I, II, III, and IV.
+    <div className="bg-white border border-[#e7c6c2] rounded-[7px] p-[25px] flex flex-col gap-5">
+      {/* Badge + description */}
+      <div className="flex flex-col gap-1">
+        <div className="inline-flex">
+          <span className="text-xs font-bold text-[#1b1a17] bg-[#e7c6c2]/20 border border-[#e7c6c2] rounded-full px-3 py-0.5">
+            PLAYERS
+          </span>
+        </div>
+        <p className="text-sm text-dark leading-5">
+          Players trade yield, rates, and volatility markets against House liquidity.
         </p>
       </div>
 
+      {/* Stats row */}
       <div className="flex items-center gap-8">
         <div>
-          <p className="text-[10px] uppercase tracking-wider text-muted font-medium">
-            Total Volume
+          <p className="text-[10px] uppercase tracking-[0.5px] font-medium text-muted leading-[15px]">
+            Total Players
           </p>
-          <p className="text-2xl font-semibold text-dark">
-            {formatB(totalVolume)}
+          <p className="text-2xl font-semibold text-dark leading-8">
+            {totalPlayers.toLocaleString()}
           </p>
         </div>
         <div>
-          <p className="text-[10px] uppercase tracking-wider text-muted font-medium">
-            Total Wallets
+          <p className="text-[10px] uppercase tracking-[0.5px] font-medium text-muted leading-[15px]">
+            Cumulative Volume
           </p>
-          <p className="text-2xl font-semibold text-dark">
-            {totalWallets.toLocaleString()}
+          <p className="text-2xl font-semibold text-dark leading-8">
+            {formatV(cumulativeVolume)}
+          </p>
+        </div>
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.5px] font-medium text-muted leading-[15px]">
+            24HR Volume
+          </p>
+          <p className="text-2xl font-semibold text-dark leading-8">
+            {formatV(dayVolume)}
           </p>
         </div>
       </div>
 
       <hr className="border-border" />
 
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <p className="text-xs font-semibold text-dark">Markets traded</p>
-          <p className="text-sm text-muted">{totalMarkets.toLocaleString()}</p>
-        </div>
-        <div>
-          <p className="text-xs font-semibold text-dark">Trades placed</p>
-          <p className="text-sm text-muted">{totalTradesPlaced.toLocaleString()}</p>
-        </div>
-        <div>
-          <p className="text-xs font-semibold text-dark">Net user profit</p>
-          <p className={`text-sm ${totalNetProfit >= 0 ? "text-green" : "text-red-500"}`}>
-            {totalNetProfit >= 0 ? "+" : ""}${totalNetProfit.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-          </p>
-        </div>
-        <div>
-          <p className="text-xs font-semibold text-dark">
-            Composite feed window
-          </p>
-          <p className="text-sm text-muted">Jul 2025 &rarr; Now</p>
-        </div>
+      {/* Market rows */}
+      <div className="flex flex-col gap-4">
+        {markets.map((m) => (
+          <div key={m.name} className="flex items-center justify-between">
+            <span className="text-xs font-bold text-dark w-[200px]">
+              {m.name}
+            </span>
+            <div className="flex items-center justify-between w-[260px] text-[10.5px] font-medium text-[#434651]">
+              <span>{formatNum(m.adv)} ADV</span>
+              <span>{formatNum(m.oi)} OI</span>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );

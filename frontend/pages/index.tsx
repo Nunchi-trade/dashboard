@@ -8,12 +8,6 @@ import PageHeader from "@/components/PageHeader";
 import TabToggle from "@/components/TabToggle";
 import HousePanel from "@/components/HousePanel";
 import PlayersPanel from "@/components/PlayersPanel";
-import PlayerFeedChart from "@/components/PlayerFeedChart";
-import AgentFlow from "@/components/AgentFlow";
-import NetPnlChart from "@/components/NetPnlChart";
-import FeedComposition from "@/components/FeedComposition";
-import CompetitionSection from "@/components/CompetitionSection";
-import Footer from "@/components/Footer";
 
 interface HomeProps {
   metrics: DerivedMetrics;
@@ -32,21 +26,14 @@ export const getServerSideProps: GetServerSideProps<HomeProps> = async () => {
     return {
       props: {
         metrics: {
-          nlpTvl: 0,
-          pendleTvl: 0,
-          nhypeTvl: 0,
-          totalTvl: 0,
-          nlpUsers: 0,
-          pendleUsers: 0,
-          totalLpWallets: 0,
-          totalVolume: 0,
-          totalWallets: 0,
-          totalMarkets: 0,
-          yexTotal: 0,
-          totalTradesPlaced: 0,
-          totalNetProfit: 0,
-          assetList: [],
-          competitions: [],
+          totalMembers: 0,
+          totalHouseCapital: 0,
+          houseApy: 0,
+          houseProducts: [],
+          totalPlayers: 0,
+          cumulativeVolume: 0,
+          dayVolume: 0,
+          playerMarkets: [],
         },
       },
     };
@@ -55,17 +42,6 @@ export const getServerSideProps: GetServerSideProps<HomeProps> = async () => {
 
 export default function Home({ metrics }: HomeProps) {
   const [activeTab, setActiveTab] = useState<"house" | "players">("house");
-
-  const compVolumes = metrics.competitions.map((c) => ({
-    label: c.name.replace("COMPETITION ", "Comp "),
-    volume: c.volume,
-  }));
-
-  const compPnls = metrics.competitions.map((c) => ({
-    label: c.name.replace("COMPETITION ", "Comp "),
-    volume: c.volume,
-    netProfit: c.netProfit,
-  }));
 
   return (
     <>
@@ -78,52 +54,27 @@ export default function Home({ metrics }: HomeProps) {
       <div className="min-h-screen bg-background">
         <Navbar />
 
-        <main className="max-w-[1600px] mx-auto px-6 md:px-12 pt-8 pb-4">
+        <main className="max-w-[1217px] mx-auto px-6 md:px-12 pt-8 pb-4">
           <PageHeader />
 
           <div className="mt-6">
             <TabToggle active={activeTab} onChange={setActiveTab} />
           </div>
 
-          {/* House + Players Panels */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
             <HousePanel
-              totalTvl={metrics.totalTvl}
-              lpWallets={metrics.totalLpWallets}
-              nlpTvl={metrics.nlpTvl}
-              pendleTvl={metrics.pendleTvl}
-              nhypeTvl={metrics.nhypeTvl}
+              totalMembers={metrics.totalMembers}
+              totalCapital={metrics.totalHouseCapital}
+              apy={metrics.houseApy}
+              products={metrics.houseProducts}
             />
             <PlayersPanel
-              totalVolume={metrics.totalVolume}
-              totalWallets={metrics.totalWallets}
-              totalMarkets={metrics.totalMarkets}
-              totalTradesPlaced={metrics.totalTradesPlaced}
-              totalNetProfit={metrics.totalNetProfit}
+              totalPlayers={metrics.totalPlayers}
+              cumulativeVolume={metrics.cumulativeVolume}
+              dayVolume={metrics.dayVolume}
+              markets={metrics.playerMarkets}
             />
           </div>
-
-          {/* Player Feed Chart + Agent Flow */}
-          <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-6 mt-8">
-            <PlayerFeedChart compVolumes={compVolumes} />
-            <AgentFlow />
-          </div>
-
-          {/* Net PnL Chart + Feed Composition */}
-          <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-6 mt-8">
-            <NetPnlChart compPnls={compPnls} />
-            <FeedComposition
-              totalMarkets={metrics.totalMarkets}
-              assetList={metrics.assetList}
-            />
-          </div>
-
-          {/* Competition History */}
-          <div className="mt-12">
-            <CompetitionSection competitions={metrics.competitions} />
-          </div>
-
-          <Footer />
         </main>
       </div>
     </>

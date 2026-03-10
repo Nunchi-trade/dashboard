@@ -1,89 +1,79 @@
 import React from "react";
+import type { HouseProduct } from "@/lib/types";
 
 interface HousePanelProps {
-  totalTvl: number;
-  lpWallets: number;
-  nlpTvl: number;
-  pendleTvl: number;
-  nhypeTvl: number;
+  totalMembers: number;
+  totalCapital: number;
+  apy: number;
+  products: HouseProduct[];
 }
 
 function formatM(value: number): string {
-  return `$${(value / 1e6).toFixed(1)}M`;
+  if (value >= 1e9) return `$${(value / 1e9).toFixed(2)}B`;
+  if (value >= 1e6) return `$${(value / 1e6).toFixed(1)}M`;
+  if (value >= 1e3) return `$${(value / 1e3).toFixed(1)}K`;
+  return `$${value.toFixed(0)}`;
 }
 
-export default function HousePanel({
-  totalTvl,
-  lpWallets,
-  nlpTvl,
-  pendleTvl,
-  nhypeTvl,
-}: HousePanelProps) {
-  const maxBar = Math.max(nlpTvl, pendleTvl, nhypeTvl, 1);
-
-  const bars = [
-    {
-      label: "nLP",
-      value: nlpTvl,
-      bg: "bg-gradient-to-r from-[#b8d4a8] to-[#dce8d4]",
-    },
-    {
-      label: "Pendle LP / PT-wNLP",
-      value: pendleTvl,
-      bg: "bg-gradient-to-r from-[#d4c8a8] to-[#e8e0d0]",
-    },
-    {
-      label: "nHYPE",
-      value: nhypeTvl,
-      bg: "bg-gradient-to-r from-[#b8b4c0] to-[#d4d0d8]",
-    },
-  ];
-
+export default function HousePanel({ totalMembers, totalCapital, apy, products }: HousePanelProps) {
   return (
-    <div className="rounded-2xl border border-border bg-white p-6 space-y-5">
-      <div className="space-y-1">
-        <p className="text-xs uppercase tracking-wider font-semibold text-dark">
-          House
-        </p>
-        <h2 className="text-sm font-normal text-dark">
-          House Liquidity Providers
-        </h2>
-        <p className="text-xs text-desc leading-relaxed">
-          Unique wallets across nLP, Pendle LP/PT-wNLP, and staked HYPE in nHYPE.
+    <div className="bg-white border border-[#bfd4ea] rounded-[7px] p-[25px] flex flex-col gap-5">
+      {/* Badge + description */}
+      <div className="flex flex-col gap-1">
+        <div className="inline-flex">
+          <span className="text-xs font-bold text-[#1b1a17] bg-[#bfd4ea]/20 border border-[#bfd4ea] rounded-full px-3 py-0.5">
+            HOUSE
+          </span>
+        </div>
+        <p className="text-sm text-dark leading-5">
+          Capital powering Nunchi&apos;s managed liquidity layer.
         </p>
       </div>
 
+      {/* Stats row */}
       <div className="flex items-center gap-8">
         <div>
-          <p className="text-[10px] uppercase tracking-wider text-muted font-medium">
-            Total TVL
+          <p className="text-[10px] uppercase tracking-[0.5px] font-medium text-muted leading-[15px]">
+            Total Members
           </p>
-          <p className="text-2xl font-semibold text-dark">{formatM(totalTvl)}</p>
+          <p className="text-2xl font-semibold text-dark leading-8">
+            {totalMembers.toLocaleString()}
+          </p>
         </div>
         <div>
-          <p className="text-[10px] uppercase tracking-wider text-muted font-medium">
-            LP Wallets
+          <p className="text-[10px] uppercase tracking-[0.5px] font-medium text-muted leading-[15px]">
+            Total House Capital
           </p>
-          <p className="text-2xl font-semibold text-dark">
-            {lpWallets.toLocaleString()}
+          <p className="text-2xl font-semibold text-dark leading-8">
+            {formatM(totalCapital)}
+          </p>
+        </div>
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.5px] font-medium text-muted leading-[15px]">
+            APY
+          </p>
+          <p className="text-2xl font-semibold text-dark leading-8">
+            {apy > 0 ? `${apy.toFixed(2)}%` : "—"}
           </p>
         </div>
       </div>
 
       <hr className="border-border" />
 
-      <div className="space-y-4">
-        {bars.map((bar) => (
-          <div key={bar.label} className="space-y-1.5">
-            <div className="flex items-center gap-4 text-xs">
-              <span className="text-dark font-bold w-[140px]">{bar.label}</span>
-              <span className="text-dark">{formatM(bar.value)}</span>
-            </div>
-            <div className="bg-background h-2 rounded-full overflow-hidden">
-              <div
-                className={`h-2 rounded-full ${bar.bg}`}
-                style={{ width: `${Math.max((bar.value / maxBar) * 100, 2)}%` }}
-              />
+      {/* Product rows */}
+      <div className="flex flex-col gap-4">
+        {products.map((p) => (
+          <div key={p.name} className="flex items-center justify-between">
+            <span className="text-xs font-bold text-dark w-[200px]">
+              {p.name}
+            </span>
+            <div className="flex items-start gap-8 w-[140px]">
+              <span className="text-xs text-dark flex-1">
+                {formatM(p.tvl)}
+              </span>
+              <span className="text-xs text-dark flex-1">
+                {p.apy > 0 ? `${p.apy.toFixed(2)}% APY` : "—"}
+              </span>
             </div>
           </div>
         ))}

@@ -115,6 +115,21 @@ export type YexVolumes = Record<string, Hip3PairVolume | number> & {
   total_notional: number;
 };
 
+export interface YexMarketInfo {
+  name: string;
+  day_volume: number;
+  open_interest: number;
+  adv: number;
+  funding: string;
+  mark_price: number;
+}
+
+export interface YexMarkets {
+  markets: Record<string, YexMarketInfo>;
+  total_24h_volume: number;
+  total_open_interest: number;
+}
+
 export interface DashboardData {
   tvl: TvlData;
   apy: Record<string, PendleMarket>;
@@ -123,35 +138,32 @@ export interface DashboardData {
   hip3_volumes: Hip3Volumes;
   testnet: TestnetData;
   yex_volumes: YexVolumes;
+  yex_markets: YexMarkets;
 }
 
-export interface CompetitionInfo {
-  num: string;
+// House product row
+export interface HouseProduct {
   name: string;
-  date: string;
-  venue: string;
-  leaderboard: string;
-  duration: string;
-  volume: number;
-  netProfit: number;
-  tradesPlaced: number;
-  assets: string[];
+  tvl: number;
+  apy: number;
+}
+
+// Player market row
+export interface PlayerMarket {
+  name: string;
+  adv: number;
+  oi: number;
 }
 
 export interface DerivedMetrics {
-  nlpTvl: number;
-  pendleTvl: number;
-  nhypeTvl: number;
-  totalTvl: number;
-  nlpUsers: number;
-  pendleUsers: number;
-  totalLpWallets: number;
-  totalVolume: number;
-  totalWallets: number;
-  totalMarkets: number;
-  yexTotal: number;
-  totalTradesPlaced: number;
-  totalNetProfit: number;
-  assetList: string[];
-  competitions: CompetitionInfo[];
+  // House
+  totalMembers: number;
+  totalHouseCapital: number;
+  houseApy: number;
+  houseProducts: HouseProduct[];
+  // Players
+  totalPlayers: number;
+  cumulativeVolume: number;
+  dayVolume: number;
+  playerMarkets: PlayerMarket[];
 }

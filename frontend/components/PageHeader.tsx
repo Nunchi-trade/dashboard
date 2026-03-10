@@ -2,16 +2,15 @@ import React from "react";
 
 export default function PageHeader() {
   return (
-    <div className="space-y-2">
-      <p className="text-[11px] uppercase tracking-[0.15em] text-muted font-medium">
-        Stats &bull; House &mdash; Players
+    <div className="flex flex-col gap-2 items-start">
+      <p className="text-[11px] uppercase tracking-[1.65px] font-medium text-muted">
+        Stats &bull; House / Players
       </p>
-      <h1 className="text-[38px] font-normal text-dark leading-tight font-serif">
-        Liquidity, competition, and agent activity
+      <h1 className="text-[38px] font-normal text-dark leading-[47.5px] font-serif">
+        House &amp; Player Metrics
       </h1>
-      <p className="text-desc text-xs max-w-3xl leading-relaxed">
-        A single institutional view of house liquidity providers, player activity,
-        agent flow, and competition results across the full Nunchi ecosystem.
+      <p className="text-xs text-desc leading-[19.5px] max-w-[768px]">
+        Track House liquidity, player activity, and competition results across Nunchi in one place.
       </p>
     </div>
   );
