@@ -72,6 +72,7 @@ export default function Home({ metrics }: HomeProps) {
       <Head>
         <title>Nunchi House Stats</title>
         <meta name="description" content="Nunchi institutional dashboard" />
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
       </Head>
 
       <div className="min-h-screen bg-background">
